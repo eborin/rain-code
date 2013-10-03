@@ -72,11 +72,7 @@ namespace trace_io {
     {};
     
     /** Destructor */
-  ~raw_input_pipe_t()
-    {
-      if (current_fh)
-	pclose(current_fh);
-    };
+    ~raw_input_pipe_t();
 
     /** Gets the next item on the trace. Returns true if the item was retrieved,
 	false if there are no more items. */

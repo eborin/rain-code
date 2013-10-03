@@ -21,7 +21,8 @@
 #include "rain.h"
 #include <iostream>
 #include <fstream>
-#include <iomanip> // setbase
+#include <iomanip>  // setbase
+#include <stdlib.h> // exit
 
 using namespace std;
 using namespace rain;
