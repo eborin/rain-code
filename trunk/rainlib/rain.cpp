@@ -130,34 +130,35 @@ void Region::Node::insertBackEdge(Region::Edge* ed, Region::Node* source)
 }
 
 bool Region::Node::insertUpdateEdge(Region::Edge* ed, Region::Node* target)
-{
-	if(NULL == edges->edge){
-		edges->edge = ed;
-		cerr << "BUG: What should we return here? true or false?" << endl; exit (2);
-	}
-	else{
-		Region::Node::List* list = edges;
-		if(list->edge->tgt->getAddress() == target->getAddress()){
-//cout <<"WOA duplicacao de aresta.\n";
-			list->edge->count++;
-			return false;
-		}
-		while(NULL != list->next){
-			list = list->next;
-			if(list->edge->tgt->getAddress() == target->getAddress()){
-//cout <<"WOA duplicacao de aresta.\n";
-				list->edge->count++;
-				return false;
-			}
-		}
-		list->next = new Region::Node::List();
-		list = list->next;
-		list->next = NULL;
-		list->edge = ed;
-		
-		return true;
-//if(3222488466 == target->getAddress()) cout << "Criado NTE " << gcounter << " contador \n";
-	}
+{ 
+  if(edges->edge == NULL) {
+    edges->edge = ed;
+    return true;
+  }
+  else
+  {
+    Region::Node::List* list = edges;
+    if(list->edge->tgt->getAddress() == target->getAddress()){
+      //cout <<"WOA duplicacao de aresta.\n";
+      list->edge->count++;
+      return false;
+    }
+    while(NULL != list->next){
+      list = list->next;
+      if(list->edge->tgt->getAddress() == target->getAddress()){
+	//cout <<"WOA duplicacao de aresta.\n";
+	list->edge->count++;
+	return false;
+      }
+    }
+    list->next = new Region::Node::List();
+    list = list->next;
+    list->next = NULL;
+    list->edge = ed;
+    
+    return true;
+    //if(3222488466 == target->getAddress()) cout << "Criado NTE " << gcounter << " contador \n";
+  }
 }
 
 Region::~Region()
