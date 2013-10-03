@@ -195,7 +195,6 @@ void NET::process(unsigned long long cur_addr, char cur_opcode[16], char unsigne
 
 void NET::next(unsigned long long target)
 {
-
   if(NULL != rain.next_node){
     //if(gcounter == 99999997) cout << "rain.next_node " << rain.next_node->getAddress() << "\n";
     /*if(NULL != rain.cur_node){
@@ -224,8 +223,7 @@ void NET::next(unsigned long long target)
       cout << "rain " << address << " " << rain.cur_node->region << " " << gcounter << " next " << target << "\n";}*/
     //if(3222682958==target)cout << "vai no next\n";
     rain.cur_node = rain.next(target);
-
-
+    
     /*if(NULL != rain.cur_node){
       
       unsigned long long address = rain.cur_node->getAddress();

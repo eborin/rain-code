@@ -145,7 +145,6 @@ namespace rain {
     map<unsigned long long,Node* > nodes;
     list<Node* > entrys;
     list<Node* > exits;
-    
   };
   
   /*
@@ -219,10 +218,12 @@ namespace rain {
     void setEntry(Region *, Region::Node *);
     void setExit(Region *, Region::Node *);
     
-    void printRegion(Region *, int, ostream&, ostream&);
-    void printTable();
-    void printRAIn(bool, ostream&, set<unsigned>&);
-    void toValidate(set<unsigned>&);
+    void printRegionsStats(ostream&);
+    void printRAInStats(ostream&);
+    void printRegionDOT(Region *, int, ostream&);
+    void printRegionsDOT(string&);
+
+    void validateRegions(set<unsigned>&);
     void printValidate(Region *,int,int,ostream&);
   };
   

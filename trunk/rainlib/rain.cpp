@@ -21,6 +21,7 @@
 #include "rain.h"
 #include <iostream>
 #include <fstream>
+#include <sstream>  // stringstream
 #include <iomanip>  // setbase
 #include <stdlib.h> // exit
 
@@ -207,16 +208,15 @@ Region::~Region()
  */
 bool Region::update(unsigned long long cur_ip)
 {
-	map<unsigned long long,Region::Node*>::iterator it = nodes.find(cur_ip);
-	if(nodes.end() != it){
-		counter++;
-		Region::Node* node = (*it).second;
-		node->access();
-
-		return true; //o nó estava na região.
-	}
-	else
-		return false;
+  map<unsigned long long,Region::Node*>::iterator it = nodes.find(cur_ip);
+  if(nodes.end() != it){
+    counter++;
+    Region::Node* node = (*it).second;
+    node->access();
+    return true; //o nó estava na região.
+  }
+  else
+    return false;
 }
 
 void Region::createEdge(Region::Node* src, Region::Node* tgt)
@@ -261,7 +261,6 @@ void Region::copyRegion(Region* region, map<unsigned long long,Region::Node* >::
 //#define Linux 3000000000
 //#define Windows 18000000000000000000
 
-ofstream table;
 bool atualizado = false;
 bool bfs = false;
 
@@ -300,38 +299,38 @@ void RAIn::verify(unsigned long long next_ip)
  */
 void RAIn::update(unsigned long long addr)
 {
-	//Atualiza as regiões do RAIn
-	map<int, Region*>::iterator it,end;
-	unsigned found = false;
-	unsigned last_reg = cur_reg; //last region visited.
+  map<int, Region*>::iterator it,end;
+  unsigned found = false;
+  unsigned last_reg = cur_reg; //last region visited.
+  
+  map<unsigned long long,Region::Edge*>::iterator edgs;
 
-	map<unsigned long long,Region::Edge*>::iterator edgs;
+  if(cur_node != NULL){
 
-//if(3222682958 == addr) cout << "tentara ";	
-	
-	if(NULL != cur_node){
-		if(-1 != cur_node->region){
-			cur_reg = cur_node->region;
-			it = regions.find(cur_reg);
-			bool is_there = (*it).second->update(addr);
-			if(is_there){
-				found = true;
-//if(7 == cur_reg){ cout << "addr " << addr << " counter " << gcounter << "\n";
-//if(3076853334 == addr) cout << "Update! " << cur_reg << "\n";
-			} else cout << "Erro2!\n";
-		}
-	}
+    if(cur_node->region != -1) {
+      // Currently inside a region
+      cur_reg = cur_node->region;
+      it = regions.find(cur_reg);
+      bool is_there = (*it).second->update(addr);
+      if(is_there) {
+	found = true;
+	//if(7 == cur_reg){ cout << "addr " << addr << " counter " << gcounter << "\n";
+	//if(3076853334 == addr) cout << "Update! " << cur_reg << "\n";
+      } 
+      else {
+	cout << "Erro2!\n";
+      }
+    }
+  }
+  
+  /** Se não pertencia a nenhuma região, então a execução estava em NTE. **/
+  if(!found){
+    nte->access();	
+  }
 
-
-	/** Se não pertencia a nenhuma região, então a execução estava em NTE. **/
-	if(!found){
-		nte->access();	
-	}
-	updateEdges(found,last_reg);
-	
-	cur_ip = addr;
-	
-	//atualizado = false;
+  updateEdges(found,last_reg);
+  
+  cur_ip = addr;
 }
 
 /*
@@ -545,161 +544,157 @@ bool operator<(const hash &a, const hash &b)
 
 map<struct hash, struct table> results;
 
-void RAIn::printRegion(Region* region, int index, ostream& reg, ostream& node)
+void RAIn::printRegionDOT(Region* region, int index, ostream& reg)
 {
-	region->cleanExits();
-	Region::Node* node_pointer;
-	bool do_break = false;
-	unsigned long long head;
-	struct hash function;
-	map<struct hash, struct table>::iterator tab;
-	unsigned count = 0, enters = 0, nodes = 0;
-	list<Region::Node* > exits = region->getExitNodes();
-	list<Region::Node* >::iterator ex;
-	node_pointer = region->getEntry();
-	Region::Node::List* list = node_pointer->edges;
-	head = node_pointer->getAddress();
-	reg << "digraph G{\n";
-	do{
-		Region::Edge* edge = list->edge;
-if(edge == NULL){ 
-do_break = true; break;}
-		unsigned long long from = edge->source();
-		unsigned long long to = edge->target();
-		reg << "_" << from << "->_" << to << ";\n";
-		reg << "count: " << edge->count << "\n";
-		
-		node_pointer = list->edge->tgt;
-		list = node_pointer->edges;
-//cout << from << "\n";
-	}while(index == node_pointer->region && head != node_pointer->getAddress());
-	reg << "}\n";
+  region->cleanExits();
+  Region::Node* node_pointer;
+  bool do_break = false;
+  unsigned long long head;
+  struct hash function;
+  map<struct hash, struct table>::iterator tab;
+  unsigned count = 0, enters = 0, nodes = 0;
+  list<Region::Node* > exits = region->getExitNodes();
+  list<Region::Node* >::iterator ex;
+  node_pointer = region->getEntry();
+  Region::Node::List* list = node_pointer->edges;
+  head = node_pointer->getAddress();
+  reg << "digraph G{\n";
+  do{
+    Region::Edge* edge = list->edge;
+    if(edge == NULL){ 
+      do_break = true; break;}
+    unsigned long long from = edge->source();
+    unsigned long long to = edge->target();
+    reg << "_" << from << "->_" << to << ";\n";
+    reg << "count: " << edge->count << "\n";
+    
+    node_pointer = list->edge->tgt;
+    list = node_pointer->edges;
+    //cout << from << "\n";
+  }while(index == node_pointer->region && head != node_pointer->getAddress());
 
-	for(ex = exits.begin(); exits.end() != ex; ex++){
-		list = (*ex)->edges;
-		while(NULL != list){
-			if(NULL == list->edge)
-				break;
-			unsigned long long address = list->edge->tgt->getAddress();
-			int region = list->edge->tgt->region;
-//if(135382607 == address) cout << "Aqui c: " << list->edge->count << " veio de " << list->edge->source()  << " " << index << " \n";
-//if(80 == index) cout << " alvo " << address << " region " << region << " count " << list->edge->count << " veio de " << list->edge->source()  << " " << index << " \n";
-			function.address = address;
-			function.region = region;
-			tab = results.find(function);
-			if(results.end() != tab)
-				results[function].number_of_entries += list->edge->count;
-			else
-				results[function].number_of_entries = list->edge->count;
-				
-			if(region != index){
-				if(results.end() != tab)
-					results[function].extern_entries += list->edge->count;
-				else
-					results[function].extern_entries = list->edge->count;
-			}
-				
-			list = list->next;
-		}
-	}
-	
-	map<unsigned long long,Region::Node* >::iterator it2, end;
+  reg << "}\n";
+  
+  for(ex = exits.begin(); exits.end() != ex; ex++){
+    list = (*ex)->edges;
+    while(NULL != list){
+      if(NULL == list->edge)
+	break;
+      unsigned long long address = list->edge->tgt->getAddress();
+      int region = list->edge->tgt->region;
+      //if(135382607 == address) cout << "Aqui c: " << list->edge->count << " veio de " << list->edge->source()  << " " << index << " \n";
+      //if(80 == index) cout << " alvo " << address << " region " << region << " count " << list->edge->count << " veio de " << list->edge->source()  << " " << index << " \n";
+      function.address = address;
+      function.region = region;
+      tab = results.find(function);
+      if(results.end() != tab)
+	results[function].number_of_entries += list->edge->count;
+      else
+	results[function].number_of_entries = list->edge->count;
+      
+      if(region != index){
+	if(results.end() != tab)
+	  results[function].extern_entries += list->edge->count;
+	else
+	  results[function].extern_entries = list->edge->count;
+      }
+      
+      list = list->next;
+    }
+  }
+  
+  map<unsigned long long,Region::Node* >::iterator it2, end;
+  end = region->getIterator(false);
+  it2 = region->getIterator(true);
+  for(; it2 != end; it2++) {
+    nodes++;
+    //TODO: FIXME: print it to another file???
+    //node << (*it2).first << " " << (*it2).second->getCounter() << endl;
 
-	end = region->getIterator(false);
-	it2 = region->getIterator(true);
-	for(; it2 != end; it2++) {
-		nodes++;
-		node << (*it2).first << " " << (*it2).second->getCounter() << "\n";
-//if(1==index) cout<<"print " << (*it2).first << "\n";
-		count += (*it2).second->getCounter();
-	}
-	
-	function.address = head;
-	function.region = index;
-	results[function].frequency = count;
-	results[function].number_of_nodes = nodes;
-
-	//table << nodes << " & " << count << " & " << enters << "\n";
+    //if(1==index) cout<<"print " << (*it2).first << "\n";
+    count += (*it2).second->getCounter();
+  }
+  function.address = head;
+  function.region = index;
+  results[function].frequency = count;
+  results[function].number_of_nodes = nodes;
+  
+  //table << nodes << " & " << count << " & " << enters << "\n";
 }
 
-void RAIn::printTable()
+void RAIn::printRAInStats(ostream& stats_f)
 {
-	map<int, Region*>::iterator it,end;
-	unsigned long long address;
-	int region;
-	struct hash function;
-	map<struct hash, struct table>::iterator tab;
-	
-	Region::Node::List* list = nte->edges;
-	while(NULL != list){
-		address = list->edge->tgt->getAddress();
-		region = list->edge->tgt->region;
-		function.address = address;
-		function.region = region;
-//if(135382607 == address) cout << "Aqui c: " << list->edge->count << " veio de NTE\n";
-		tab = results.find(function);
-		if(results.end() != tab){
-			results[function].number_of_entries += list->edge->count;
-			results[function].extern_entries += list->edge->count;
-		}else{
-			results[function].number_of_entries = list->edge->count;
-			results[function].extern_entries = list->edge->count;
-		}
-		list = list->next;
-//if(135382607 == address) cout << "Function: " << results[function].number_of_entries << " veio de NTE " << address*region << "\n";
-	}
-
-	unsigned entries;
-	end = regions.end();
-	it = regions.begin();
-	table << "Região & Tam. estático & Frequência & # Entradas & Entradas externas\n";
-	for(; it != end; it++) {
-		region = (*it).first;
-		table << region << " & ";
-		address = (*it).second->getEntry()->getAddress();
-		function.address = address;
-		function.region = region;
-		tab = results.find(function);
-//if(results.end() == tab) cout << "Pau na " << (*it).first << " end " << address << "\n";
-		entries = results[function].number_of_entries;
-//if(3222373754 == address) cout << "Function: " << results[function].number_of_entries << " veio de NTE " << address*region << " " << region << " " << address << "\n";
-		table << results[function].number_of_nodes << " & " << results[function].frequency << " & " << entries << " & " << results[function].extern_entries << "\n";
-	}
-	
-	
-	
+  // Print statistics for regions
+  printRegionsStats(stats_f);
+  // Print statistics for NTE
+  stats_f << "0" << "," << nte->getCounter() << endl;
 }
 
-void RAIn::printRAIn(bool validate, ostream& fout, set<unsigned>& regions_to_validate)
+void RAIn::printRegionsStats(ostream& stats_f)
 {
-	map<int, Region*>::iterator it,end;
-	char fname[100];
-	unsigned c = 1;
-	table.open("results/table.out");
-	end = regions.end();
-	it = regions.begin();
-	for(; it != end; it++) {
-		sprintf(fname,"results/node_%02d.out",c);
-		ofstream node;
-		ofstream reg;
-		node.open(fname);
-		sprintf(fname,"results/reg_%02d.out",c++);
-		reg.open(fname);
-		printRegion((*it).second, (*it).first, reg, node);
-//cout << (*it).second->getExitNodes().front()->getAddress() << "\n";
-		reg.close();
-		node.close();
-	}
-	printTable();
-	c--;
-	fout << --c << " & " << nte->getCounter() << "\n";
-	table.close();
-
-	if(validate)
-		toValidate(regions_to_validate);
+  map<int, Region*>::iterator it,end;
+  unsigned long long address;
+  int region;
+  struct hash function;
+  map<struct hash, struct table>::iterator tab;
+  
+  Region::Node::List* list = nte->edges;
+  while(NULL != list){
+    address = list->edge->tgt->getAddress();
+    region = list->edge->tgt->region;
+    function.address = address;
+    function.region = region;
+    //if(135382607 == address) cout << "Aqui c: " << list->edge->count << " veio de NTE\n";
+    tab = results.find(function);
+    if(results.end() != tab){
+      results[function].number_of_entries += list->edge->count;
+      results[function].extern_entries += list->edge->count;
+    }
+    else{
+      results[function].number_of_entries = list->edge->count;
+      results[function].extern_entries = list->edge->count;
+    }
+    list = list->next;
+    //if(135382607 == address) cout << "Function: " << results[function].number_of_entries << " veio de NTE " << address*region << "\n";
+  }
+  
+  unsigned entries;
+  end = regions.end();
+  it = regions.begin();
+  stats_f << "Region,Static Size,Frequency,# Entries,External Entries" << endl;
+  for(; it != end; it++) {
+    region = (*it).first;
+    address = (*it).second->getEntry()->getAddress();
+    function.address = address;
+    function.region = region;
+    tab = results.find(function);
+    //if(results.end() == tab) cout << "Pau na " << (*it).first << " end " << address << "\n";
+    entries = results[function].number_of_entries;
+    //if(3222373754 == address) cout << "Function: " << results[function].number_of_entries << " veio de NTE " << address*region << " " << region << " " << address << "\n";
+    stats_f << region << ","
+	    << results[function].number_of_nodes << "," 
+	    << results[function].frequency << "," 
+	    << entries << "," 
+	    << results[function].extern_entries << endl;
+  }
 }
 
-void RAIn::toValidate(set<unsigned>& regions_to_validate)
+void RAIn::printRegionsDOT(string& dotf_prefix)
+{
+  map<int, Region*>::iterator it,end;
+  it = regions.begin();
+  end = regions.end();
+  for(unsigned c=1; it != end; it++, c++) {
+    ostringstream fn;
+    fn << dotf_prefix << std::setfill ('0') << std::setw (4) << c << ".dot"; 
+    ofstream dotf(fn.str().c_str());
+    printRegionDOT((*it).second, (*it).first, dotf);
+    //cout << (*it).second->getExitNodes().front()->getAddress() << "\n";
+    dotf.close();
+  }
+}
+
+void RAIn::validateRegions(set<unsigned>& regions_to_validate)
 {
 	ofstream graph;
 	graph.open("results/graph.cfg");

@@ -27,6 +27,7 @@
 #include "trace_io.h"
 #include "rain.h"
 #include "rf_techniques.h"
+#include <fstream> // ofstream
 
 using namespace std;
 using namespace rain;
@@ -35,10 +36,11 @@ clarg::argInt    start_i("-s", "start: first file index ", 0);
 clarg::argInt    end_i("-e", "end: last file index", 0);
 clarg::argString basename("-b", "input file basename", "trace");
 clarg::argBool   help("-h",  "display the help message");
+clarg::argString stats_fname("-o", "output statistics file name (CSV)", "reg_stats.csv");
 
 void usage(char* prg_name) 
 {
-  cout << "Usage: " << prg_name << " -b basename -s index -e index [-h]" 
+  cout << "Usage: " << prg_name << " -b basename -s index -e index [-h] [-o stats.csv]" 
        << endl << endl;
 
   cout << "DESCRIPTION:" << endl;
@@ -136,8 +138,16 @@ int main(int argc,char** argv)
 
   //Print statistics
   if (rf) {
-    //rf->rain.printRAIn(false /*validate.was_set()*/);
-  }
+
+    ofstream stats_f(stats_fname.get_value().c_str());
+    rf->rain.printRegionsStats(stats_f);
+    stats_f.close();
+ 
+
+    //set<unsigned> regions_to_validate;
+    //rf->rain.validateRegions(regions_to_validate);
+ 
+ }
 
   return 0; // Return OK.
 }
