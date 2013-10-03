@@ -19,10 +19,18 @@
  ***************************************************************************/
 #include "trace_io.h"
 #include <iostream>
-#include <sstream> // stringstream
+#include <sstream>  // stringstream
+#include <stdio.h>  // pclose
+#include <stdlib.h> // exit
 
 using namespace trace_io;
 using namespace std;
+
+raw_input_pipe_t::~raw_input_pipe_t()
+{
+  if (current_fh)
+    pclose(current_fh);
+};
 
 /** Gets the next item on the trace. Returns false if there are no items to be
     read, return true otherwise. */
