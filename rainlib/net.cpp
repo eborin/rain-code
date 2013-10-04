@@ -76,7 +76,8 @@ void NET::process(unsigned long long cur_addr, char cur_opcode[16], char unsigne
     }
     else if (recording_buffer.contains_address(cur_addr)) {
       // Hit an instruction already recorded (loop)
-      RF_DBG_MSG("Stopped recording because isnt " << "0x" << setbase(16) << cur_addr << " is already included on the recording buffer." << endl);
+      RF_DBG_MSG("Stopped recording because isnt " << "0x" << setbase(16) << 
+		 cur_addr << " is already included on the recording buffer." << endl);
       stopRecording = true;
     }
     else if (switched_mode(edg)) {
@@ -93,7 +94,8 @@ void NET::process(unsigned long long cur_addr, char cur_opcode[16], char unsigne
     }
     else {
       // Record target instruction on region formation buffer
-      RF_DBG_MSG("Recording " << "0x" << setbase(16) << cur_addr << " on the recording buffer" << endl);
+      RF_DBG_MSG("Recording " << "0x" << setbase(16) << 
+		 cur_addr << " on the recording buffer" << endl);
       recording_buffer.append(cur_addr); //, cur_opcode, cur_length);
     }
   }
@@ -144,7 +146,8 @@ void NET::buildNETRegion()
     rain.setExit(last_node);
   }
 
-  RF_DBG_MSG("Region " << r->id << " created. # nodes = " << r->nodes.size() << endl);
+  RF_DBG_MSG("Region " << r->id << " created. # nodes = " <<
+	     r->nodes.size() << endl);
 
 }
 

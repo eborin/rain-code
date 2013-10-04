@@ -149,11 +149,7 @@ int main(int argc,char** argv)
 
     ofstream overall_stats_f(overall_stats_fname.get_value().c_str());
     rf->rain.printOverallStats(overall_stats_f);
-    overall_stats_f.close();
-
-    //set<unsigned> regions_to_validate;
-    //rf->rain.validateRegions(regions_to_validate);
- 
+    overall_stats_f.close(); 
  }
 
   return 0; // Return OK.

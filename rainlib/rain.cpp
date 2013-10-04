@@ -190,7 +190,6 @@ Region::Edge* Region::createInnerRegionEdge(Region::Node* src, Region::Node* tgt
   return ed;
 }
 
-/** Return the edge that will be followed if the next_ip is executed. */
 Region::Edge* RAIn::queryNext(unsigned long long next_ip)
 {
   if (cur_node == nte) {
@@ -217,7 +216,6 @@ Region::Edge* RAIn::queryNext(unsigned long long next_ip)
   }
 }
 
-/** Add edge supposing next_ip is the next instruction to be executed. */
 Region::Edge* RAIn::addNext(unsigned long long next_ip)
 {
   // Sanity checking
@@ -260,7 +258,6 @@ Region::Edge* RAIn::addNext(unsigned long long next_ip)
   return edg;
 }
 
-/** Execute the edge (update the current node and related statistics). */
 void RAIn::executeEdge(Region::Edge* edge)
 {
   DBG_ASSERT(edge->src == cur_node);
@@ -289,7 +286,6 @@ void RAIn::setExit(Region::Node* node)
   node->region->setExitNode(node);
 }
 
-/** Create an edge to connect two nodes from different regions. */
 Region::Edge* RAIn::createInterRegionEdge(Region::Node* src, Region::Node* tgt)
 {
   DBG_ASSERT(src->region != tgt->region);
@@ -315,30 +311,6 @@ void RAIn::printRAInStats(ostream& stats_f)
   // Print statistics for NTE
   stats_f << "0" << "," << nte->freq_counter << endl;
 }
-
-struct table
-{
-	unsigned number_of_nodes;
-	unsigned frequency;
-	unsigned number_of_entries;
-	unsigned extern_entries;
-};
-
-struct hash
-{
-	unsigned long long address;
-	int region;
-};
-
-bool operator<(const hash &a, const hash &b)
-{
-	return (a.address*a.region) < (b.address*b.region);
-}
-
-//TODO: Fix this
-// First updated at printTRegion
-// Then, updated and used at printTable  
-map<struct hash, struct table> results;
 
 unsigned long long Region::allNodesFreq() const
 {
@@ -435,47 +407,38 @@ void RAIn::printOverallStats(ostream& stats_f)
 
 void RAIn::printRegionDOT(Region* region, ostream& reg)
 {
-#if 0
-  Region::Node* node_pointer;
-  unsigned long long head;
-  unsigned count = 0, enters = 0, nodes = 0;
-  list<Region::Node* > exits = region->getExitNodes();
-  list<Region::Node* >::iterator ex;
-  node_pointer = region->getEntry();
-  Region::Node::List* list = node_pointer->out_edges;
-  head = node_pointer->getAddress();
-
-  reg << "digraph G{\n";
-
-  do{
-    Region::Edge* edge = list->edge;
-    
-    if(edge == NULL)
-      break;
-
-    reg << "_" << edge->source() << "->_" << edge->target() << ";" << endl;
-    reg << "count: " << edge->freq_counter << endl;
-    node_pointer = list->edge->tgt;
-    list = node_pointer->out_edges;
+  reg << "digraph G{" << endl;
+  
+  map<Region::Node*,unsigned> node_id;
+  unsigned id_gen = 1;
+  // For each node.
+  reg << "/* nodes */" << endl;
+  for (list<Region::Node*>::const_iterator nit = region->nodes.begin(); 
+       nit != region->nodes.end(); nit++) {
+    Region::Node* n = *nit;
+    node_id[n] = id_gen++;
+    reg << "  n" << node_id[n] << " [label=\"0x" << setbase(16) << n->getAddress() << "\"]" << endl;
   }
-  while(index == node_pointer->region && head != node_pointer->getAddress());
 
-  reg << "}\n";
-
-  //TODO: FIXME: print it to another file???
-  if (0 /* print node */ ) {
-    map<unsigned long long,Region::Node* >::iterator it, end;
-    end = region->nodes.end();
-    for(it = region->nodes.begin(); it != end; it++) {
-      nodes++;
-      //node << (*it2).first << " " << (*it2).second->getCounter() << endl;
-      //if(1==index) cout<<"print " << (*it2).first << "\n";
-      count += (*it).second->freq_counter;
+  reg << "/* edges */" << endl;
+  for (list<Region::Node*>::const_iterator nit = region->nodes.begin(); 
+       nit != region->nodes.end(); nit++) {
+    Region::Node* n = *nit;
+    // For each out edge.
+    for (Region::EdgeListItem* i = n->out_edges; i; i=i->next) {
+      Region::Edge* edg = i->edge;
+      reg << "n" << node_id[edg->src] << " -> " << "n" << node_id[edg->tgt] << ";" << endl;
+    }
+    // For each in edge.
+    for (Region::EdgeListItem* i = n->in_edges; i; i=i->next) {
+      Region::Edge* edg = i->edge;
+      reg << "n" << node_id[edg->src] << " -> " << "n" << node_id[edg->tgt] << ";" << endl;
     }
   }
-#endif
-}
+  
+  reg << "}" << endl;
 
+}
 
 void RAIn::printRegionsDOT(string& dotf_prefix)
 {
@@ -487,65 +450,6 @@ void RAIn::printRegionsDOT(string& dotf_prefix)
     fn << dotf_prefix << std::setfill ('0') << std::setw (4) << c << ".dot"; 
     ofstream dotf(fn.str().c_str());
     printRegionDOT(it->second, dotf);
-    //cout << (*it).second->getExitNodes().front()->getAddress() << "\n";
     dotf.close();
   }
 }
-
-void RAIn::validateRegions(set<unsigned>& regions_to_validate)
-{
-	ofstream graph;
-	graph.open("results/graph.cfg");
-	graph << setbase(16) << "digraph G{\n";
-
-	graph << "state_0 [ style = \"filled\" penwidth = 3 fillcolor = \"plum4\" fontname = \"Courier New\" shape = \"Mrecord\" label = \"NTE\"];\n";
-
-	set<unsigned>::const_iterator rit;
-	int i;
-	for (i=0, rit = regions_to_validate.begin(); rit != regions_to_validate.end(); rit++, i++) {
-	  unsigned region_id = *rit;
-	  map<unsigned, Region*>::iterator it = regions.find(region_id);
-	  printValidate(it->second, it->first, i, graph);
-	}
-	
-	graph << "}";
-	
-	graph.close();
-}
-
-void RAIn::printValidate(Region* region, int index,int i,ostream& graph)
-{
-  #if 0
-	string color[] = {"red", "blue", "cyan", "green",  "yellow", "purple", "orange", "brown", "yellowgreen", "darkorange", "pink", "indigo", "magenta", "grey", "orangered", "red4", "blue4", "green4", "yellow4", "chocolate", "antiquewhite"};
-
-	Region::Node* node_pointer;
-	unsigned long long head;
-cout << "Region " << index << " i " << i << "\n";
-	map<unsigned long long,Region::Node* >::iterator it2, end;
-	end = region->nodes.end();
-	it2 = region->nodes.begin();
-	for(; it2 != end; it2++) {
-	  graph << "state_" << setbase(16) << (*it2).first
-		<< " [ style = \"filled\" penwidth = 1 fillcolor = \"" << color[i] 
-		<< "\" fontname = \"Courier New\" shape = \"Mrecord\" label = \"" << (*it2).first
-		<< "\"];\n";
-	}
-
-	node_pointer = region->getEntry();
-	Region::Node::List* list = node_pointer->out_edges;
-	head = node_pointer->getAddress();
-	
-	do{
-		Region::Edge* edge = list->edge;
-
-		unsigned long long from = edge->source();
-		unsigned long long to = edge->target();
-		graph << "state_" << from << "->" << "state_" << to << ";\n";
-	
-		node_pointer = list->edge->tgt;
-		list = node_pointer->out_edges;
-//cout << from << "\n";
-	}while(index == node_pointer->region && head != node_pointer->getAddress());
-#endif
-}
-
