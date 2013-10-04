@@ -36,7 +36,7 @@ void RegionRecorder::record(Region::Node* node, RAIn& rain)
 {
   this->cur_node = node;
   cur_reg = rain.createRegion();
-  rain.insertNode(cur_reg,this->cur_node);
+  cur_reg->insertNode(this->cur_node);
   cur_reg->setEntryNode(this->cur_node);	
 }
 

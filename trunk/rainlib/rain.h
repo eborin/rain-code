@@ -1,7 +1,6 @@
 /***************************************************************************
  *   Copyright (C) 2013 by:                                                *
- *   - Edson Borin (edson@ic.unicamp.br), and                              *
- *   - Raphael Zinsly (raphael.zinsly@gmail.com)                           *
+ *   Edson Borin (edson@ic.unicamp.br)                                     *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -37,7 +36,16 @@ namespace rain {
   class Region {
 
   public:
+
     class Edge;
+
+    struct EdgeListItem
+    {
+    EdgeListItem() : edge(NULL), next(NULL) {}
+      Edge* edge;
+      EdgeListItem* next;
+    };
+      
     
     /** 
      *  @brief A Region Node object represents one instruction inside the region
@@ -48,37 +56,35 @@ namespace rain {
       
       Node();
       Node(unsigned long long);
-      Node(unsigned long long, string);
       ~Node();
       
-      void access() {freq_counter++;}
       unsigned long long getAddress() {return addr;}
-      unsigned getCounter() {return freq_counter;}
-      string getOpName() {return op_name;}
       
-      void insertEdge(Edge*, Node*);
-      void insertBackEdge(Edge*, Node*);
-      bool insertUpdateEdge(Edge*, Node*);
+      void insertOutEdge(Edge*, Node*);
+      void insertInEdge(Edge*, Node*);
+
+      Edge* findOutEdge(unsigned long long next_ip) const;
+      Edge* findOutEdge(Node* target) const;
+      Edge* findInEdge(Node* target) const;
       
     public:
-      struct List
-      {
-	Edge* edge;
-	List* next;
-	unsigned long long source;
-      };
-      
-      unsigned freq_counter; //< Frequency counter.
-      int      region;
-      bool     call;
-      
-      List* edges;
-      List* back_edges;
+
+      unsigned long long  freq_counter; //< Frequency counter.
+      Region*  region;       //< Region (NULL for NTE)
+
+      /** Instructions property */
+      struct instr_property {
+        instr_property() : call(false) {}
+	bool     call;         //< Call instruction?
+      } inst_property;
+       
+      /** List of out edges. */
+      EdgeListItem* out_edges;
+      EdgeListItem* in_edges;
       
     private:
+
       unsigned long long addr; //< Instruction address.
-      string          op_name; //< Instruction opcode name.
-      
     };
     
     /** 
@@ -89,138 +95,157 @@ namespace rain {
     public:
 
       Edge() {}
-      Edge(Node* x, Node* y) : src(x), tgt(y), count(1) {}
+      Edge(Node* x, Node* y) : src(x), tgt(y), freq_counter(1) {}
       
       /// Address of the target instruction.
       unsigned long long target() { return tgt->getAddress(); }
+
       /// Address of the source instruction.
       unsigned long long source() { return src->getAddress(); }
       
     public:
-      Node* src; 
-      Node* tgt;
 
-      unsigned count; //< Frequency counter
+      Node* src;                       //< Source node (instruction)
+      Node* tgt;                       //< Target node (instruction)
+      unsigned long long freq_counter; //< Frequency counter
     };
     
   public:
     
-    Region() : counter(0)
+    Region() : reg_out_edges(NULL), reg_in_edges(NULL) 
       {}
-    Region(unsigned long long addr) : counter(0)
-      {
-	Node* node = new Node(addr);
-	includeNode(node,addr);
-      }
-	
     ~Region();
-    
-    bool update(unsigned long long);
-    
-    void includeNode(Node * node, unsigned long long addr){nodes.insert(make_pair(addr,node));}
-    void setEntryNode(Node* node){entrys.push_back(node);}
-    void setExitNode(Node* node){exits.push_back(node);}
-    void createEdge(Node*, Node*);
-    
-    list<Node* > getEntryNodes(){return entrys;}
-    Node* getEntry() {return entrys.front();}
-    list<Node* > getExitNodes(){return exits;}
-    map<unsigned long long,Node* > getNodes(){return nodes;}
-    int size(){return (int) nodes.size();}
-    map<unsigned long long,Node* >::iterator getIterator(bool);
-    
-    void cleanExits(){exits.sort(); exits.unique();}
-    
-    /**
-     * Methods required by Treegion
-     */
-    map<unsigned long long,Node* >::iterator find(unsigned long long);
-    map<unsigned long long,Edge* >::iterator getIteratorEdge(bool);
-    void copyRegion(Region*, map<unsigned long long,Node* >::iterator);
 
-    unsigned counter;
+    unsigned long long allNodesFreq() const;
+    unsigned long long entryNodesFreq() const;
+    unsigned long long exitNodesFreq() const;
+    unsigned long long externalEntries() const;
+    
+    void insertNode(Node * node)
+    {
+      node->region = this;
+      nodes.push_back(node);
+    }
+    void setEntryNode(Node* node)
+    {entry_nodes.push_back(node);}
+    void setExitNode(Node* node)
+    {exit_nodes.push_back(node);}
+    Edge* createInnerRegionEdge(Node* src, Node* tgt);
+    
+    /** A região é composta por nós ligados por arestas, semelhante a um CFG. */
+    list<Node* > nodes;
+    /** List of pointer to entry nodes. */
+    list<Node* > entry_nodes;
+    /** List of pointer to exit nodes. */
+    list<Node* > exit_nodes;
+
+    /** Region identifier -- debug purposes. */
+    unsigned id;
+
+    void insertRegOutEdge(Edge*);
+    void insertRegInEdge(Edge*);
+
+    /** List of pointers to region out edges. */
+    EdgeListItem* reg_out_edges;
+    /** List of pointers to region in edges. */
+    EdgeListItem* reg_in_edges;
 
   private:
-    /** A região é composta por nós ligados por arestas, semelhante a um CFG. */
-    map<unsigned long long,Node* > nodes;
-    list<Node* > entrys;
-    list<Node* > exits;
+
+    /** Region inner edges. */
+    list<Edge* > region_inner_edges;
+
   };
   
-  /*
-   * --- Classe que implementa a estrutura do RAIn. ---
+  /** 
+   * Region Appraisal Infrastructure class
+   * In order to update the state of the trace execution automata (TEA),
+   * the user may:
+   *
+   * // query the edge that will be followed if next addr is executed
+   * edg = queryNext(addr);
+   * // create a new edge, in case there is no existing edge.
+   * if (!edg)
+   *   edg = addNext(addr);
+   * // then, execute the edge to update the internal state (current node, etc...)
+   * executeEdge(edg);
+   * 
    */
   class RAIn
   {
   private:
-    bool in_region; //processamento está em alguma região já formada.
-    bool stop; //indica se o processo de criação de uma região deva parar.
-    bool just_quit; //indica se acabou de sair de uma região.
-    
-    //Node* nte; // No Trace being Executed.
-    //unsigned count; //counter.
-    //map<int, Region*> regions;
-    //map<unsigned long long, int> entrys;
+
     map<unsigned long long, Region::Edge*> edges;
-    //bool in_nte;
-    int cur_reg; //current region(índice).
+
+    /** List of inter region edges. */
+    list<Region::Edge* > inter_region_edges;
   
+    unsigned region_id_generator;
+
   public:	
     
-    // Moved from global to here.... :-(
-    Region::Node* last_node;
-    Region::Node* cur_node;
-    Region::Node* next_node;
-    
+    /** Map region identifiers to regions. */
+    map<unsigned, Region*> regions;
+
+    /** NTE node */
     Region::Node* nte;
-    map<int, Region*> regions;
-    bool in_nte;
-    map<unsigned long long, int> entrys;
-    unsigned count;
-    unsigned cur_index;
-    unsigned long long cur_ip; //current instruction pointer.
-    string last_name; //usado para tt.
-    bool system;
+    /** NTE loop edge. */
+    Region::Edge* nte_loop_edge;
+    /** NTE out edges map for fast searches. */
+    map<unsigned long long, Region::Edge*> nte_out_edges_map;
+
+    /** Current node. */
+    Region::Node* cur_node;
     
-    RAIn()
+    /** Hash table for entry nodes. */
+    map<unsigned long long, Region::Node*> region_entry_nodes;
+
+    RAIn() : region_id_generator(1) // id 0 is reserved for NTE
     {
       nte = new Region::Node(0);
-      count = 1;
-      cur_index = 1;
       nte->region = 0;
-      system = false;
-      in_region = false;
-      stop = false;
-      just_quit = false;
+      nte_loop_edge = new Region::Edge();
+      nte_loop_edge->src = nte_loop_edge->tgt = nte;
+      cur_node = nte;
     }
   
     ~RAIn()
     {
       delete nte;
-      edges.clear();
+      delete nte_loop_edge;
+      for (map<unsigned, Region*>::iterator it = regions.begin(); 
+	   it != regions.end(); it++)
+      {
+	Region* r = it->second;
+	delete r;
+      }
       regions.clear();
     }
   
-    void verify(unsigned long long);
-    void update(unsigned long long);
-    Region::Node* next(unsigned long long);
-    void currentRegion(int);
+    /** Return the edge that will be followed if the next_ip is executed. */
+    Region::Edge* queryNext(unsigned long long next_ip);
+
+    /** Add edge supposing next_ip is the next instruction to be executed. 
+     *  This should be called only if queryNext has returned NULL. */
+    Region::Edge* addNext(unsigned long long next_ip);
+
+    /** Execute the edge (update the current node and related statistics). */
+    void executeEdge(Region::Edge* edg);
     
-    void updateEdges(bool,int);
-    
+    /** Create a new region. */
     Region* createRegion();
-    Region::Node* createNode(Region *, unsigned long long);
-    bool insertNode(Region *, Region::Node*);
-    void insertRegion(Region *);
-    void createEdge(Region *, Region::Node*, Region::Node*);
-    void createEdge(Region::Node*, Region::Node*);
-    void createOrUpdateEdge(Region::Node*, Region::Node*);
-    void setEntry(Region *, Region::Node *);
-    void setExit(Region *, Region::Node *);
+    
+    /** Create an edge to connect two nodes from different regions. */
+    Region::Edge* createInterRegionEdge(Region::Node*, Region::Node*);
+
+    void setEntry(Region::Node *);
+    void setExit(Region::Node *);
     
     void printRegionsStats(ostream&);
+    void printOverallStats(ostream&);
+
     void printRAInStats(ostream&);
-    void printRegionDOT(Region *, int, ostream&);
+    void printRegionDOT(Region *, ostream&);
     void printRegionsDOT(string&);
 
     void validateRegions(set<unsigned>&);
@@ -232,8 +257,10 @@ namespace rain {
   public:
 
     virtual void 
-      process(unsigned long long cur_addr, char cur_opcode[16], char unsigned cur_length, 
-	      unsigned long long nxt_addr, char nxt_opcode[16], char unsigned nxt_length) = 0;
+      process(unsigned long long cur_addr, char cur_opcode[16], 
+	      char unsigned cur_length, 
+	      unsigned long long nxt_addr, char nxt_opcode[16], 
+	      char unsigned nxt_length) = 0;
 
     virtual void finish() = 0;
 
