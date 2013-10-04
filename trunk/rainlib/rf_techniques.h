@@ -26,6 +26,16 @@
 #include "regionmanager.h"
 #include "trace_io.h"
 
+//#define DEBUG_MSGS
+
+#ifdef DEBUG_MSGS
+#include <iostream> // cerr
+#include <iomanip>  // setbase
+#define RF_DBG_MSG(msg) std::cerr << msg
+#else
+#define RF_DBG_MSG(msg)
+#endif
+
 namespace rf_technique {
 
   /** 
@@ -36,7 +46,8 @@ namespace rf_technique {
   {
   public:
     
-  NET() : recording_NET(false) {}
+    NET() : recording_NET(false),nte_last_addr (0)
+      {}
     
     void process(unsigned long long cur_addr, char cur_opcode[16], char unsigned cur_length, 
 		 unsigned long long nxt_addr, char nxt_opcode[16], char unsigned nxt_length);
@@ -47,6 +58,8 @@ namespace rf_technique {
 
     bool recording_NET;
 
+    unsigned long long nte_last_addr;
+
     /** Instruction hotness profiler. */
 #define HOT_THRESHOLD 50
     struct profiler_t {
@@ -56,10 +69,14 @@ namespace rf_technique {
       void update(unsigned long long addr) {
 	map<unsigned long long, unsigned long long>::iterator it = 
 	  instr_freq_counter.find(addr);
-	if (it == instr_freq_counter.end())
+	if (it == instr_freq_counter.end()) {
+	  RF_DBG_MSG("profiling: freq[" << "0x" << std::setbase(16) << addr << "] = 1" << endl);
 	  instr_freq_counter[addr] = 1;
-	else
+	}
+	else {
 	  it->second++;
+	  RF_DBG_MSG("profiling: freq[" << "0x" << std::setbase(16) << addr << "] = " << it->second << endl);
+	}
       }
 
       /** Check whether instruction is already hot. */

@@ -63,7 +63,7 @@ namespace rain {
       void insertOutEdge(Edge*, Node*);
       void insertInEdge(Edge*, Node*);
 
-      Edge* findOutEdge(unsigned long long next_ip) const;
+      Edge* findOutEdge(unsigned long long next_ip);
       Edge* findOutEdge(Node* target) const;
       Edge* findInEdge(Node* target) const;
       

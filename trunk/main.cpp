@@ -136,7 +136,7 @@ int main(int argc,char** argv)
     // Process the trace
     if (rf) rf->process(current.addr, current.opcode, current.length,
 			next.addr, next.opcode, next.length);
-    next = current;
+    current = next;
   }
   if (rf) rf->finish();
 
