@@ -24,38 +24,29 @@
 //#include "rain.h"
 #include "regionrecorder.h"
 
-//#ifndef __treegionrecorder_h
-//#include "treegionrecorder.h"
-//#endif
-
 using namespace std;
 
-/*
- * --- Classe que gerencia a formação das regiões do RAIn. ---
- */
 class RegionManager
 {
-	map<unsigned long long,unsigned> counter;
-	map<unsigned long long,bool> already_reg; // already a TRegion.
+  map<unsigned long long,unsigned> counter;
+  map<unsigned long long,bool> already_reg; // already a TRegion.
 
 public:
-	unsigned long long cur_ip; //current instruction pointer.
-	RegionManager()
-	{
-		cur_ip = 0;
-	}
-	
-	void abort(unsigned head)
-	{
-		already_reg[head] = false;
-	}
-	
-	void net(unsigned long long,RegionRecorder*); 	//Next-Executing Tail.
-	void netCount(unsigned long long,RegionRecorder*); //Parte do algoritmo NET.
-	void mret2();			//Most Recently Executed Tail 2 (NET em duas fases).
-	void lei();				//Last-Executed Iteration.
-	void tt(unsigned long long, RegionRecorder*); 	//NET para formação de Trace Trees.
-	void treegion();		//Método para formação de Treegions.
+  unsigned long long cur_ip; //current instruction pointer.
+
+  RegionManager() : cur_ip(0) {}
+  
+  void abort(unsigned head)
+  {
+    already_reg[head] = false;
+  }
+  
+  void net(unsigned long long,RegionRecorder*); 	//Next-Executing Tail.
+  void netCount(unsigned long long,RegionRecorder*); //Parte do algoritmo NET.
+  void mret2();			//Most Recently Executed Tail 2 (NET em duas fases).
+  void lei();				//Last-Executed Iteration.
+  void tt(unsigned long long, RegionRecorder*); 	//NET para formação de Trace Trees.
+  void treegion();		//Método para formação de Treegions.
 };
 
 #endif // REGIONMANAGER_H

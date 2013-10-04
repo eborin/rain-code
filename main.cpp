@@ -1,7 +1,6 @@
 /***************************************************************************
  *   Copyright (C) 2013 by:                                                *
- *   - Edson Borin (edson@ic.unicamp.br), and                              *
- *   - Raphael Zinsly (raphael.zinsly@gmail.com)                           *
+ *   Edson Borin (edson@ic.unicamp.br)                                     *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -36,7 +35,12 @@ clarg::argInt    start_i("-s", "start: first file index ", 0);
 clarg::argInt    end_i("-e", "end: last file index", 0);
 clarg::argString basename("-b", "input file basename", "trace");
 clarg::argBool   help("-h",  "display the help message");
-clarg::argString stats_fname("-o", "output statistics file name (CSV)", "reg_stats.csv");
+clarg::argString reg_stats_fname("-reg_stats", 
+				 "file name to dump regions statistics in CSV format", 
+				 "reg_stats.csv");
+clarg::argString overall_stats_fname("-overall_stats", 
+				     "file name to dump overall statistics in CSV format", 
+				     "overall_stats.csv");
 
 void usage(char* prg_name) 
 {
@@ -139,10 +143,13 @@ int main(int argc,char** argv)
   //Print statistics
   if (rf) {
 
-    ofstream stats_f(stats_fname.get_value().c_str());
-    rf->rain.printRegionsStats(stats_f);
-    stats_f.close();
- 
+    ofstream reg_stats_f(reg_stats_fname.get_value().c_str());
+    rf->rain.printRAInStats(reg_stats_f);
+    reg_stats_f.close();
+
+    ofstream overall_stats_f(overall_stats_fname.get_value().c_str());
+    rf->rain.printOverallStats(overall_stats_f);
+    overall_stats_f.close();
 
     //set<unsigned> regions_to_validate;
     //rf->rain.validateRegions(regions_to_validate);

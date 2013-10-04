@@ -28,44 +28,87 @@
 
 namespace rf_technique {
 
+  /** 
+   * Class to evaluate the Next Executing Tail (NET) region formation
+   * technique.
+   */
   class NET : public rain::RF_Technique
   {
   public:
     
-  NET() : region_id(1), number_of_instructions(0), paused(false), just_quit(true), stop_rf(false) {}
+  NET() : recording_NET(false) {}
     
     void process(unsigned long long cur_addr, char cur_opcode[16], char unsigned cur_length, 
 		 unsigned long long nxt_addr, char nxt_opcode[16], char unsigned nxt_length);
     
     void finish();
-    
-  protected:
-    
-    bool isBranch(unsigned char, unsigned long long, unsigned long long);
-    bool switchState(unsigned long long);
-    bool branch(unsigned long long, unsigned long long);
-    void buffering(unsigned long long);
-    void record();
-    void next(unsigned long long);
-    
+
+  private:
+
+    bool recording_NET;
+
+    /** Instruction hotness profiler. */
+#define HOT_THRESHOLD 50
+    struct profiler_t {
+      map<unsigned long long, unsigned long long> instr_freq_counter;
+      
+      /** Update profile information. */
+      void update(unsigned long long addr) {
+	map<unsigned long long, unsigned long long>::iterator it = 
+	  instr_freq_counter.find(addr);
+	if (it == instr_freq_counter.end())
+	  instr_freq_counter[addr] = 1;
+	else
+	  it->second++;
+      }
+
+      /** Check whether instruction is already hot. */
+      bool is_hot(unsigned long long addr) {
+	map<unsigned long long, unsigned long long>::iterator it = 
+	  instr_freq_counter.find(addr);
+	if (it != instr_freq_counter.end())
+	  return (it->second > HOT_THRESHOLD);
+	else
+	  return false;
+      }
+    } profiler;
+
+    /** Buffer to record new NET regions. */
+    struct recording_buffer_t {
+      
+      /** List of instruction addresses. */
+      list<unsigned long long> addresses;
+      
+      void reset() { addresses.clear(); }
+
+      void append(unsigned long long addr) { addresses.push_back(addr); }
+
+      bool contains_address(unsigned long long addr)
+      {
+	list<unsigned long long>::iterator it;
+	for (it = addresses.begin(); it != addresses.end(); it++) {
+	  if ( (*it) == addr) 
+	    return true;
+	}
+	return false;
+      }
+    } recording_buffer;
+
+    void buildNETRegion();
+
 #define System 0	//Linux/Windows/0
 
-    RegionRecorder rr;
-    RegionManager  manager;
+    bool is_system_instr(unsigned long long addr)
+    {
+      return (addr >= System);
+    }
+    bool switched_mode(rain::Region::Edge* edg)
+    {
+      return (is_system_instr(edg->src->getAddress()) != 
+	      is_system_instr(edg->tgt->getAddress()));
+    }
 
-    int region_id;      //< Region unique identifier
-    
-#define MAX_INST	1000 //Número máximo de instruções na região.
-    
-    rain::Region::Node* buffer[MAX_INST]; //buffer de instruções que serão gravadas na região.
-
-    unsigned number_of_instructions; //número de instruções no buffer de instruções.
-    bool verified;
-    bool paused;
-    bool just_quit;
-    bool stop_rf;   //< Stop region formation.
   };
-
 
 }; // namespace rf_technique
 

@@ -1,7 +1,6 @@
 /***************************************************************************
  *   Copyright (C) 2013 by:                                                *
- *   - Edson Borin (edson@ic.unicamp.br), and                              *
- *   - Raphael Zinsly (raphael.zinsly@gmail.com)                           *
+ *   Edson Borin (edson@ic.unicamp.br), and                                *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -28,499 +27,280 @@
 using namespace std;
 using namespace rain;
 
-Region::Node::Node()
-{
-	region = -1;
-	freq_counter = 0;
-	edges = new List();
-	edges->next = NULL;
-	edges->edge = NULL;
-	back_edges = new List();
-	back_edges->next = NULL;
-	back_edges->edge = NULL;
-	call = false;
-}
+#ifdef DEBUG
+#include <assert.h>
+#define DBG_ASSERT(cond) assert(cond)
+#else
+#define DBG_ASSERT(cond)
+#endif
 
-Region::Node::Node(unsigned long long addr)
-{
-	region = -1;
-	this->addr = addr;
-	freq_counter = 0;
-	edges = new List();
-	edges->next = NULL;
-	edges->edge = NULL;
-	back_edges = new List();
-	back_edges->next = NULL;
-	back_edges->edge = NULL;
-	call = false;
-}
+Region::Node::Node() : region(NULL), freq_counter(0), 
+		       out_edges(NULL), in_edges(NULL) 
+{}
+
+Region::Node::Node(unsigned long long a) : region(NULL), freq_counter(0), 
+					   out_edges(NULL), in_edges(NULL),
+					   addr(a)
+{}
 	
 Region::Node::~Node()
 {
-	Region::Edge* edge;
-	List* list = edges;
-	List* next;
-	while(NULL != list){
-		next = list->next;
-		edge = list->edge;
-		if(NULL != edge)
-			delete edge;
-		delete list;
-		list = next;
-	}
-	
-	list = back_edges;
-	while(NULL != list){
-		next = list->next;
-		delete list;
-		list = next;
-	}
-}
-
-void Region::Node::insertEdge(Region::Edge* ed, Region::Node* target)
-{
-	if(NULL == edges->edge){
-		edges->edge = ed;
-	}
-	else{
-		Region::Node::List* list = edges;
-		if(list->edge->tgt->getAddress() == target->getAddress()){
-//cout <<"WOA duplicacao de aresta.\n";
-			return;
-		}
-		while(NULL != list->next){
-			list = list->next;
-			if(list->edge->tgt->getAddress() == target->getAddress()){
-//cout <<"WOA duplicacao de aresta.\n";
-				return;
-			}
-		}
-		list->next = new Region::Node::List();
-		list = list->next;
-		list->next = NULL;
-		list->edge = ed;
-	}
-}
-
-void Region::Node::insertBackEdge(Region::Edge* ed, Region::Node* source)
-{
-	unsigned long long addr = source->getAddress();
-	if(NULL == back_edges->edge){
-		back_edges->edge = ed;
-		back_edges->source = addr;
-	}
-	else{
-		Region::Node::List* list = back_edges;
-		if(list->source == addr){
-//cout <<"WOA duplicacao de aresta.\n";
-			return;
-		}
-		while(NULL != list->next){
-			list = list->next;
-			if(list->source == addr){
-//cout <<"WOA duplicacao de aresta.\n";
-				return;
-			}
-		}
-		list->next = new Region::Node::List();
-		list = list->next;
-		list->next = NULL;
-		list->edge = ed;
-		list->source = addr;
-	}
-}
-
-bool Region::Node::insertUpdateEdge(Region::Edge* ed, Region::Node* target)
-{ 
-  if(edges->edge == NULL) {
-    edges->edge = ed;
-    return true;
+  EdgeListItem* it = out_edges;
+  while (it) {
+    EdgeListItem* next = it->next;
+    delete it;
+    it = next;
   }
-  else
-  {
-    Region::Node::List* list = edges;
-    if(list->edge->tgt->getAddress() == target->getAddress()){
-      //cout <<"WOA duplicacao de aresta.\n";
-      list->edge->count++;
-      return false;
-    }
-    while(NULL != list->next){
-      list = list->next;
-      if(list->edge->tgt->getAddress() == target->getAddress()){
-	//cout <<"WOA duplicacao de aresta.\n";
-	list->edge->count++;
-	return false;
-      }
-    }
-    list->next = new Region::Node::List();
-    list = list->next;
-    list->next = NULL;
-    list->edge = ed;
-    
-    return true;
-    //if(3222488466 == target->getAddress()) cout << "Criado NTE " << gcounter << " contador \n";
+
+  it = in_edges;
+  while (it) {
+    EdgeListItem* next = it->next;
+    delete it;
+    it = next;
   }
+}
+
+Region::Edge* Region::Node::findOutEdge(unsigned long long next_ip) const
+{
+  for (EdgeListItem* it = out_edges; it; it = it->next) {
+    if (it->edge->tgt->getAddress() == next_ip) {
+      return it->edge;
+    }
+  }
+  return NULL;
+}
+
+Region::Edge* Region::Node::findOutEdge(Region::Node* target) const
+{
+  for (EdgeListItem* it = out_edges; it; it = it->next) {
+    if (it->edge->tgt == target) {
+      return it->edge;
+    }
+  }
+  return NULL;
+}
+
+Region::Edge* Region::Node::findInEdge(Region::Node* source) const
+{
+  for (EdgeListItem* it = in_edges; it; it = it->next) {
+    if (it->edge->src == source) {
+      return it->edge;
+    }
+  }
+  return NULL;
+}
+
+void Region::Node::insertOutEdge(Region::Edge* ed, Region::Node* target)
+{
+#ifdef DEBUG
+  assert(ed->src == this);
+  assert(ed->tgt == target);
+  // Check for edge duplication
+  assert(findOutEdge(target) == NULL);
+#endif 
+
+  Region::EdgeListItem* it = new Region::EdgeListItem();
+  it->edge = ed;
+  it->next = out_edges;
+  out_edges = it;
+}
+
+void Region::Node::insertInEdge(Region::Edge* ed, Region::Node* source)
+{
+#ifdef DEBUG
+  assert(ed->tgt == this);
+  assert(ed->src == source);
+  // Check for edge duplication
+  assert(findInEdge(source) == NULL);
+#endif 
+
+  Region::EdgeListItem* it = new Region::EdgeListItem();
+  it->edge = ed;
+  it->next = in_edges;
+  in_edges = it;
 }
 
 Region::~Region()
 {
-  map<unsigned long long,Region::Node* >::iterator entry = nodes.begin();
-  Region::Node* prev, *node;
-  for(;entry != nodes.end(); entry++){
-    node = (*entry).second;
-    Region::Node::List* list = node->back_edges;
-    if(NULL == list->edge)
-      list = NULL;
-    while(NULL != list){
-      unsigned addr = node->getAddress();
-      prev = list->edge->src;
-      Region::Node::List* prev_list = prev->edges;
-      Region::Node::List* prev_prev = prev_list;
-      while(NULL != prev_list->next){
-	prev_list = prev_list->next;
-	if(prev_list->edge->tgt->getAddress() == addr){
-	  prev_prev->next = prev_list->next;
-	  Region::Edge* edge = prev_list->edge;
-	  delete edge;
-	  delete prev_list;
-	  break;
-	}
-	prev_prev = prev_list;
-      }
-      
-      list = list->next;
-	  }
+  // Remove all edges.
+  list<Edge*>::iterator eit = region_inner_edges.begin();
+  for (; eit!= region_inner_edges.end(); eit++) {
+    Edge* e = *eit;
+    delete e;
   }
-  map<unsigned long long,Region::Node* >::iterator it, end;
-  end = nodes.end();
-  for(it = nodes.begin(); it != end; it++) {
-    node = (*it).second;
+  region_inner_edges.clear();
+
+  // Remove all nodes.
+  for(list<Node*>::iterator nit = nodes.begin(); nit != nodes.end(); nit++) {
+    Region::Node* node = (*nit);
     delete node;
   }
-  
   nodes.clear();
-  entrys.clear();
-  exits.clear();
+
+  // Remove pointer to entry and exit nodes
+  entry_nodes.clear();
+  exit_nodes.clear();
 }
 
-/*
- * --- Atualiza a região. ---
- */
-bool Region::update(unsigned long long cur_ip)
+void Region::insertRegOutEdge(Edge* ed)
 {
-  map<unsigned long long,Region::Node*>::iterator it = nodes.find(cur_ip);
-  if(nodes.end() != it){
-    counter++;
-    Region::Node* node = (*it).second;
-    node->access();
-    return true; //o nó estava na região.
-  }
-  else
-    return false;
+#ifdef DEBUG
+  assert(ed->src->region == this);
+  assert(ed->tgt->region != this);
+#endif 
+
+  EdgeListItem* it = new EdgeListItem();
+  it->edge = ed;
+  it->next = reg_out_edges;
+  reg_out_edges = it;
 }
 
-void Region::createEdge(Region::Node* src, Region::Node* tgt)
+void Region::insertRegInEdge(Region::Edge* ed)
 {
-	Region::Edge* ed = new Region::Edge(src,tgt);
-	src->insertEdge(ed,tgt);
-	tgt->insertBackEdge(ed,tgt);
+#ifdef DEBUG
+  assert(ed->src->region != this);
+  assert(ed->tgt->region == this);
+#endif 
+
+  EdgeListItem* it = new EdgeListItem();
+  it->edge = ed;
+  it->next = reg_in_edges;
+  reg_in_edges = it;
 }
 
-map<unsigned long long,Region::Node* >::iterator Region::getIterator(bool which)
+Region::Edge* Region::createInnerRegionEdge(Region::Node* src, Region::Node* tgt)
 {
-	if(which) return nodes.begin();
-	else return nodes.end();
+  Edge* ed = new Edge(src,tgt);
+  src->insertOutEdge(ed,tgt);
+  tgt->insertInEdge(ed,src);
+  region_inner_edges.push_back(ed);
+  return ed;
 }
 
-map<unsigned long long,Region::Node* >::iterator Region::find(unsigned long long addr)
+/** Return the edge that will be followed if the next_ip is executed. */
+Region::Edge* RAIn::queryNext(unsigned long long next_ip)
 {
-	return nodes.find(addr);
-}
-
-void Region::copyRegion(Region* region, map<unsigned long long,Region::Node* >::iterator it)
-{
-	//list<Region::Node *>::iterator entry, end;
-	Region::Node* node = (*it).second;
-	for(; it != nodes.end(); it++){
-		region->includeNode((*it).second,(*it).first);
-		nodes.erase(it);
-	}
-	/*
-	entry = entrys.begin();
-	while((*entry).second->getAddress() < node->getAddress()){
-		entry++;
-	}
-	if((*entry).second->getAddress() == node->getAddress())
-		region->entrys.splice(region->entrys.begin(),entrys,entry,entrys.end());
-	else{
-		region->setEntry(node);
-		region->entrys.splice(++(region->entrys.begin()),entrys,entry,entrys.end());
-	}*/
-}
-
-//#define Linux 3000000000
-//#define Windows 18000000000000000000
-
-bool atualizado = false;
-bool bfs = false;
-
-/*
- * Verifica se o proximo nó é o início de uma região.
- */
-void RAIn::verify(unsigned long long next_ip)
-{
-  map<int, Region*>::iterator it,end;
-  int how_many = 0;
-
-  map<unsigned long long, int>::iterator index;
-  index = entrys.find(next_ip);
-  if(index != entrys.end()){
-    cur_reg = (*index).second;
-    it = regions.find(cur_reg);
-    next_node = (*it).second->getEntry();
-    how_many++;
-    cur_reg = (*it).first;
-  }
-  
-  if(0 == how_many){
-    in_region = false;
-    in_nte = true;
-  }
-  else{
-    //Caso tenha encontrado o início de uma região, termina a região atual e
-    //continua a atualização do rain.
-    stop = true;
-  }
-
-}
-
-/*
- * --- Atualiza o RAIn. ---
- */
-void RAIn::update(unsigned long long addr)
-{
-  map<int, Region*>::iterator it,end;
-  unsigned found = false;
-  unsigned last_reg = cur_reg; //last region visited.
-  
-  map<unsigned long long,Region::Edge*>::iterator edgs;
-
-  if(cur_node != NULL){
-
-    if(cur_node->region != -1) {
-      // Currently inside a region
-      cur_reg = cur_node->region;
-      it = regions.find(cur_reg);
-      bool is_there = (*it).second->update(addr);
-      if(is_there) {
-	found = true;
-	//if(7 == cur_reg){ cout << "addr " << addr << " counter " << gcounter << "\n";
-	//if(3076853334 == addr) cout << "Update! " << cur_reg << "\n";
-      } 
+  if (cur_node == nte) {
+    // NTE node (treated separatedely for efficiency reasons)
+    map<unsigned long long, Region::Edge*>::iterator it = 
+      nte_out_edges_map.find(next_ip);
+    if (it != nte_out_edges_map.end())
+      return it->second; // Return existing NTE out edge
+    else {
+      // Search for region entries, if there is none, return nte_loop_edge
+      if (region_entry_nodes.find(next_ip) != region_entry_nodes.end()) {
+	// edge representing transition from nte to region missing.
+	return NULL;
+      }
       else {
-	cout << "Erro2!\n";
+	// transition from nte to nte
+	return nte_loop_edge;
       }
     }
   }
-  
-  /** Se não pertencia a nenhuma região, então a execução estava em NTE. **/
-  if(!found){
-    nte->access();	
+  else {
+    // Region node
+    return cur_node->findOutEdge(next_ip);
+  }
+}
+
+/** Add edge supposing next_ip is the next instruction to be executed. */
+Region::Edge* RAIn::addNext(unsigned long long next_ip)
+{
+  // Sanity checking
+  DBG_ASSERT(queryNext(next_ip) == NULL);
+  Region::Edge* edg = NULL;
+  Region::Node* next_node = NULL;
+
+  // Search for region entries.
+  map<unsigned long long, Region::Node*>::iterator it = 
+    region_entry_nodes.find(next_ip);
+  if(it != region_entry_nodes.end())
+    next_node = it->second;
+  else
+    next_node = NULL;
+
+  if (cur_node == nte) {
+    if (next_node == NULL) {
+      cerr << "Error, addNext should be not called when "
+	   << "queryNext returns a valid edge." << endl;
+      exit (1);
+    }
+    else {
+      // Add edge from nte to region entry.
+      edg = createInterRegionEdge(nte, next_node);
+    }
+  }
+  else {
+    // current node belongs to region.
+    if (next_node == NULL) {
+      // add edge from cur_node to nte (back to emulation manager) 
+      edg = createInterRegionEdge(cur_node, nte);
+    }
+    else {
+      // add edge from cur_node to region_entry (link regions)
+      edg = createInterRegionEdge(cur_node, next_node);
+    }
   }
 
-  updateEdges(found,last_reg);
-  
-  cur_ip = addr;
+  DBG_ASSERT(edg != NULL);
+  return edg;
 }
 
-/*
- * Devolve o próximo nó.
- */
-Region::Node* RAIn::next(unsigned long long next_ip)
+/** Execute the edge (update the current node and related statistics). */
+void RAIn::executeEdge(Region::Edge* edge)
 {
-	//Se o nó estava em NTE, procura-o entre as entradas de região.
-	if(in_nte){
-//if(3222682958 == next_ip) cout << "tava em in nte.\n";
-		map<unsigned long long, int>::iterator index;
-		index = entrys.find(next_ip);
-		if(index != entrys.end()){
-			int reg = (*index).second;
-			map<int, Region*>::iterator regs = regions.find(reg);
-			map<unsigned long long,Region::Node* >::iterator it = (*regs).second->find(next_ip);
-			return (*it).second;
-		}
-		else
-			return NULL;
-	}
-	
-	//Procura o próximo nó entre as arestas do último nó.
-	if(NULL != cur_node){
-//if(3222682958 == next_ip) cout << "Vixe!\n";
-		Region::Node::List* list = cur_node->edges;
-		if(NULL != list->edge){
-			while(NULL != list->next){
-				if(next_ip == list->edge->tgt->getAddress()){
-					list->edge->count++;
-					atualizado = true;
-					return list->edge->tgt;
-				}
-				list = list->next;
-			}
-			
-			//Verifica a última aresta.
-			if(next_ip == list->edge->tgt->getAddress()){
-				list->edge->count++;
-				atualizado = true;
-				return list->edge->tgt;
-			}
-		}
-		//Caso o nó não esteja entre as arestas procura-o entre as entradas de regiões e se o encontrar adiciona uma nova aresta entre o último nó e este.
-		map<unsigned long long, int>::iterator index;
-		index = entrys.find(next_ip);
-		if(index != entrys.end()){
-			int reg = (*index).second;
-			map<int, Region*>::iterator regs = regions.find(reg);
-			map<unsigned long long,Region::Node* >::iterator it = (*regs).second->find(next_ip);
-			next_node = (*it).second;
-			createEdge(cur_node,next_node);
-			setExit(regions[cur_node->region],cur_node);
-			return next_node;
-		}
-		else
-			return NULL;
-	}
-
-	return NULL;
-
-}
-
-// Atualiza o índice da região atualmente a ser gravada. (-1 para o default)
-void RAIn::currentRegion(int index)
-{
-	if(-1 == index)
-		this->cur_index = this->count;
-	else
-		this->cur_index = index;
-}
-
-void RAIn::updateEdges(bool found,int last_reg)
-{
-	if(!found){
-		//Caso estava atualizando uma região e saiu, o último nó era uma saída.
-		if(in_region && !bfs)
-		{
-if(-1==last_node->region) cout << "ERRRO AQUI!\n";
-			setExit(regions[last_node->region],last_node);
-			just_quit = true;
-		}
-		in_region = false;
-	
-		//Cria arestas para NTE caso venha de alguma região.
-		if(!in_nte){
-			if(NULL != last_node){
-				createEdge(last_node,nte);
-			}
-		}	
-		in_nte = true;
-	}
-	//Caso pertencia a alguma região.
-	else{
-		in_region = true;
-					
-		//Se trocou de região cria uma aresta entre elas ou atualiza.
-		if(last_reg != cur_reg){
-			if(NULL != cur_node){
-				if(NULL != last_node){
-// cout << "last node region " << last_node->region << " " << last_node->getAddress() << " " << cur_reg << " last reg " << last_reg << "\n";
-					setExit(regions[last_node->region],last_node);
-					if(!atualizado)
-						createEdge(last_node,cur_node);
-				}
-			}
-		}
-	
-		//Cria arestas de NTE caso venha de lá.
-		if(in_nte){
-			if(NULL == last_node){ 
-				createOrUpdateEdge(nte,cur_node);
-			}
-		}	
-		in_nte = false;
-	}
+  DBG_ASSERT(edge->src == cur_node);
+  cur_node = edge->tgt;
+  edge->freq_counter++;
+  cur_node->freq_counter++;
 }
 
 Region* RAIn::createRegion()
 {
-	Region* region; 
-	region = new Region();
-	
-	return region;
+  Region* region; 
+  region = new Region();
+  region->id = region_id_generator++;
+  regions[region->id] = region;
+  return region;
 }
 
-Region::Node* RAIn::createNode(Region* region, unsigned long long addr)
-{
-	if(region->find(addr) == region->getIterator(false)){
-		Region::Node* node = new Region::Node(addr);
-		node->region = this->cur_index;
-		region->includeNode(node,addr);
-		return node;
-	}
-
-	return NULL;
+void RAIn::setEntry(Region::Node* node)
+{ 
+  region_entry_nodes[node->getAddress()] = node;
+  node->region->setEntryNode(node);
 }
 
-bool RAIn::insertNode(Region* region, Region::Node* node)
+void RAIn::setExit(Region::Node* node)
 {
-	unsigned long long addr = node->getAddress();
-	map<unsigned long long,Region::Node*>::iterator it;
-	it = region->find(addr);
-	if(it == region->getIterator(false)){
-		node->region = this->cur_index;
-		region->includeNode(node,addr);
-		return true;
-	}
-	
-	return false;
+  node->region->setExitNode(node);
 }
 
-void RAIn::insertRegion(Region* region)
+/** Create an edge to connect two nodes from different regions. */
+Region::Edge* RAIn::createInterRegionEdge(Region::Node* src, Region::Node* tgt)
 {
-	regions[this->count] = region;
-	unsigned long long  entry = region->getEntry()->getAddress();
-	entrys[entry] = this->count;
-	this->count++;
-	this->cur_index = this->count;
+  DBG_ASSERT(src->region != tgt->region);
+  Region::Edge* ed = new Region::Edge(src,tgt);
+  src->insertOutEdge(ed,tgt);
+  tgt->insertInEdge(ed,src);
+
+  if (src->region)
+    src->region->insertRegOutEdge(ed);
+  if (tgt->region)
+    tgt->region->insertRegInEdge(ed);
+
+  inter_region_edges.push_back(ed);
+  if (src == nte)
+    nte_out_edges_map[tgt->getAddress()] = ed;
+  return ed;
 }
 
-void RAIn::setEntry(Region* region, Region::Node* node)
+void RAIn::printRAInStats(ostream& stats_f)
 {
-	region->setEntryNode(node);
-}
-
-void RAIn::setExit(Region* region, Region::Node* node)
-{
-	region->setExitNode(node);
-}
-
-void RAIn::createEdge(Region* region, Region::Node* src, Region::Node* tgt)
-{
-	region->createEdge(src,tgt);
-}
-
-//Cria ou atualiza uma aresta.
-void RAIn::createEdge(Region::Node* src, Region::Node* tgt)
-{
-	Region::Edge* ed = new Region::Edge(src,tgt);
-	src->insertEdge(ed,tgt);
-	tgt->insertBackEdge(ed,tgt);
-}
-
-void RAIn::createOrUpdateEdge(Region::Node* src, Region::Node* tgt)
-{
-	Region::Edge* ed = new Region::Edge(src,tgt);
-	bool inserted = src->insertUpdateEdge(ed,tgt);
-	if(inserted)
-		tgt->insertBackEdge(ed,tgt);
+  // Print statistics for regions
+  printRegionsStats(stats_f);
+  // Print statistics for NTE
+  stats_f << "0" << "," << nte->freq_counter << endl;
 }
 
 struct table
@@ -542,153 +322,158 @@ bool operator<(const hash &a, const hash &b)
 	return (a.address*a.region) < (b.address*b.region);
 }
 
+//TODO: Fix this
+// First updated at printTRegion
+// Then, updated and used at printTable  
 map<struct hash, struct table> results;
 
-void RAIn::printRegionDOT(Region* region, int index, ostream& reg)
+unsigned long long Region::allNodesFreq() const
 {
-  region->cleanExits();
-  Region::Node* node_pointer;
-  bool do_break = false;
-  unsigned long long head;
-  struct hash function;
-  map<struct hash, struct table>::iterator tab;
-  unsigned count = 0, enters = 0, nodes = 0;
-  list<Region::Node* > exits = region->getExitNodes();
-  list<Region::Node* >::iterator ex;
-  node_pointer = region->getEntry();
-  Region::Node::List* list = node_pointer->edges;
-  head = node_pointer->getAddress();
-  reg << "digraph G{\n";
-  do{
-    Region::Edge* edge = list->edge;
-    if(edge == NULL){ 
-      do_break = true; break;}
-    unsigned long long from = edge->source();
-    unsigned long long to = edge->target();
-    reg << "_" << from << "->_" << to << ";\n";
-    reg << "count: " << edge->count << "\n";
-    
-    node_pointer = list->edge->tgt;
-    list = node_pointer->edges;
-    //cout << from << "\n";
-  }while(index == node_pointer->region && head != node_pointer->getAddress());
-
-  reg << "}\n";
-  
-  for(ex = exits.begin(); exits.end() != ex; ex++){
-    list = (*ex)->edges;
-    while(NULL != list){
-      if(NULL == list->edge)
-	break;
-      unsigned long long address = list->edge->tgt->getAddress();
-      int region = list->edge->tgt->region;
-      //if(135382607 == address) cout << "Aqui c: " << list->edge->count << " veio de " << list->edge->source()  << " " << index << " \n";
-      //if(80 == index) cout << " alvo " << address << " region " << region << " count " << list->edge->count << " veio de " << list->edge->source()  << " " << index << " \n";
-      function.address = address;
-      function.region = region;
-      tab = results.find(function);
-      if(results.end() != tab)
-	results[function].number_of_entries += list->edge->count;
-      else
-	results[function].number_of_entries = list->edge->count;
-      
-      if(region != index){
-	if(results.end() != tab)
-	  results[function].extern_entries += list->edge->count;
-	else
-	  results[function].extern_entries = list->edge->count;
-      }
-      
-      list = list->next;
-    }
+  unsigned long long c = 0;
+  for (list<Node*>::const_iterator it = nodes.begin(); it!=nodes.end(); it++) {
+    c += (*it)->freq_counter;
   }
-  
-  map<unsigned long long,Region::Node* >::iterator it2, end;
-  end = region->getIterator(false);
-  it2 = region->getIterator(true);
-  for(; it2 != end; it2++) {
-    nodes++;
-    //TODO: FIXME: print it to another file???
-    //node << (*it2).first << " " << (*it2).second->getCounter() << endl;
-
-    //if(1==index) cout<<"print " << (*it2).first << "\n";
-    count += (*it2).second->getCounter();
-  }
-  function.address = head;
-  function.region = index;
-  results[function].frequency = count;
-  results[function].number_of_nodes = nodes;
-  
-  //table << nodes << " & " << count << " & " << enters << "\n";
+  return c;
 }
 
-void RAIn::printRAInStats(ostream& stats_f)
+unsigned long long Region::entryNodesFreq() const
 {
-  // Print statistics for regions
-  printRegionsStats(stats_f);
-  // Print statistics for NTE
-  stats_f << "0" << "," << nte->getCounter() << endl;
+  unsigned long long c = 0;
+  for (list<Node*>::const_iterator it = entry_nodes.begin(); it!=entry_nodes.end(); it++) {
+    c += (*it)->freq_counter;
+  }
+  return c;
+}
+
+unsigned long long Region::exitNodesFreq() const
+{
+  unsigned long long c = 0;
+  for (list<Node*>::const_iterator it = exit_nodes.begin(); it!=exit_nodes.end(); it++) {
+    c += (*it)->freq_counter;
+  }
+  return c;
+}
+
+unsigned long long Region::externalEntries() const
+{
+  unsigned long long c = 0;
+  for (EdgeListItem* it = reg_in_edges; it; it=it->next) {
+    Edge* e = it->edge;
+    c += e->freq_counter;
+  }
+  return c;
 }
 
 void RAIn::printRegionsStats(ostream& stats_f)
 {
-  map<int, Region*>::iterator it,end;
-  unsigned long long address;
-  int region;
-  struct hash function;
-  map<struct hash, struct table>::iterator tab;
-  
-  Region::Node::List* list = nte->edges;
-  while(NULL != list){
-    address = list->edge->tgt->getAddress();
-    region = list->edge->tgt->region;
-    function.address = address;
-    function.region = region;
-    //if(135382607 == address) cout << "Aqui c: " << list->edge->count << " veio de NTE\n";
-    tab = results.find(function);
-    if(results.end() != tab){
-      results[function].number_of_entries += list->edge->count;
-      results[function].extern_entries += list->edge->count;
-    }
-    else{
-      results[function].number_of_entries = list->edge->count;
-      results[function].extern_entries = list->edge->count;
-    }
-    list = list->next;
-    //if(135382607 == address) cout << "Function: " << results[function].number_of_entries << " veio de NTE " << address*region << "\n";
-  }
-  
-  unsigned entries;
-  end = regions.end();
-  it = regions.begin();
-  stats_f << "Region,Static Size,Frequency,# Entries,External Entries" << endl;
-  for(; it != end; it++) {
-    region = (*it).first;
-    address = (*it).second->getEntry()->getAddress();
-    function.address = address;
-    function.region = region;
-    tab = results.find(function);
-    //if(results.end() == tab) cout << "Pau na " << (*it).first << " end " << address << "\n";
-    entries = results[function].number_of_entries;
-    //if(3222373754 == address) cout << "Function: " << results[function].number_of_entries << " veio de NTE " << address*region << " " << region << " " << address << "\n";
-    stats_f << region << ","
-	    << results[function].number_of_nodes << "," 
-	    << results[function].frequency << "," 
-	    << entries << "," 
-	    << results[function].extern_entries << endl;
+  map<unsigned, Region*>::iterator rit;
+
+  stats_f << "Region," 
+	  << "# Nodes," 
+	  << "All Nodes Freq," 
+	  << "Entry Nodes Freq," 
+	  << "Exit Nodes Freq," 
+	  << "External Entries,"
+	  << endl;
+  for (rit = regions.begin(); rit != regions.end(); rit++)
+  {
+    Region* r = rit->second;
+
+    stats_f << r->id << ","
+	    << r->nodes.size() << "," 
+	    << r->allNodesFreq() << "," 
+	    << r->entryNodesFreq() << "," 
+	    << r->exitNodesFreq() << "," 
+	    << r->externalEntries() << ","
+	    << endl;
   }
 }
 
+void RAIn::printOverallStats(ostream& stats_f)
+{
+  unsigned long long total_stat_reg_size = 0;
+  unsigned long long total_reg_entries = 0;
+  unsigned long long total_reg_freq = 0;
+  unsigned long long nte_freq = nte->freq_counter;
+  map<unsigned long long,unsigned> unique_instrs;
+
+  map<unsigned, Region*>::iterator rit;
+  for (rit = regions.begin(); rit != regions.end(); rit++)
+  {
+    Region* r = rit->second;
+    total_stat_reg_size += r->nodes.size();
+    total_reg_entries += r->externalEntries();
+    total_reg_freq += r->allNodesFreq();
+    list<Region::Node*>::const_iterator it;
+    for (it=r->nodes.begin(); it!=r->nodes.end(); it++) {
+      unique_instrs[(*it)->getAddress()] = 1;
+    }
+  }
+  unsigned long long total_unique_instrs = unique_instrs.size();
+
+  stats_f << "# of instructions on regions" << "," << total_stat_reg_size  << endl;
+  stats_f << "Region entry frequency count" << "," << total_reg_entries << endl;
+  stats_f << "Freq. of instructions on regions" << "," << total_reg_freq << endl;
+  stats_f << "Freq. of instructions out of regions" << "," << nte_freq << endl;
+  stats_f << "# of unique included on regions" << "," << total_unique_instrs << endl;
+  stats_f << "Average dyn. size" << "," << 
+    (double) total_reg_freq / (double) total_reg_entries << endl;
+}
+
+void RAIn::printRegionDOT(Region* region, ostream& reg)
+{
+#if 0
+  Region::Node* node_pointer;
+  unsigned long long head;
+  unsigned count = 0, enters = 0, nodes = 0;
+  list<Region::Node* > exits = region->getExitNodes();
+  list<Region::Node* >::iterator ex;
+  node_pointer = region->getEntry();
+  Region::Node::List* list = node_pointer->out_edges;
+  head = node_pointer->getAddress();
+
+  reg << "digraph G{\n";
+
+  do{
+    Region::Edge* edge = list->edge;
+    
+    if(edge == NULL)
+      break;
+
+    reg << "_" << edge->source() << "->_" << edge->target() << ";" << endl;
+    reg << "count: " << edge->freq_counter << endl;
+    node_pointer = list->edge->tgt;
+    list = node_pointer->out_edges;
+  }
+  while(index == node_pointer->region && head != node_pointer->getAddress());
+
+  reg << "}\n";
+
+  //TODO: FIXME: print it to another file???
+  if (0 /* print node */ ) {
+    map<unsigned long long,Region::Node* >::iterator it, end;
+    end = region->nodes.end();
+    for(it = region->nodes.begin(); it != end; it++) {
+      nodes++;
+      //node << (*it2).first << " " << (*it2).second->getCounter() << endl;
+      //if(1==index) cout<<"print " << (*it2).first << "\n";
+      count += (*it).second->freq_counter;
+    }
+  }
+#endif
+}
+
+
 void RAIn::printRegionsDOT(string& dotf_prefix)
 {
-  map<int, Region*>::iterator it,end;
+  map<unsigned, Region*>::iterator it,end;
   it = regions.begin();
   end = regions.end();
   for(unsigned c=1; it != end; it++, c++) {
     ostringstream fn;
     fn << dotf_prefix << std::setfill ('0') << std::setw (4) << c << ".dot"; 
     ofstream dotf(fn.str().c_str());
-    printRegionDOT((*it).second, (*it).first, dotf);
+    printRegionDOT(it->second, dotf);
     //cout << (*it).second->getExitNodes().front()->getAddress() << "\n";
     dotf.close();
   }
@@ -706,7 +491,7 @@ void RAIn::validateRegions(set<unsigned>& regions_to_validate)
 	int i;
 	for (i=0, rit = regions_to_validate.begin(); rit != regions_to_validate.end(); rit++, i++) {
 	  unsigned region_id = *rit;
-	  map<int, Region*>::iterator it = regions.find(region_id);
+	  map<unsigned, Region*>::iterator it = regions.find(region_id);
 	  printValidate(it->second, it->first, i, graph);
 	}
 	
@@ -717,14 +502,15 @@ void RAIn::validateRegions(set<unsigned>& regions_to_validate)
 
 void RAIn::printValidate(Region* region, int index,int i,ostream& graph)
 {
+  #if 0
 	string color[] = {"red", "blue", "cyan", "green",  "yellow", "purple", "orange", "brown", "yellowgreen", "darkorange", "pink", "indigo", "magenta", "grey", "orangered", "red4", "blue4", "green4", "yellow4", "chocolate", "antiquewhite"};
 
 	Region::Node* node_pointer;
 	unsigned long long head;
 cout << "Region " << index << " i " << i << "\n";
 	map<unsigned long long,Region::Node* >::iterator it2, end;
-	end = region->getIterator(false);
-	it2 = region->getIterator(true);
+	end = region->nodes.end();
+	it2 = region->nodes.begin();
 	for(; it2 != end; it2++) {
 	  graph << "state_" << setbase(16) << (*it2).first
 		<< " [ style = \"filled\" penwidth = 1 fillcolor = \"" << color[i] 
@@ -732,9 +518,8 @@ cout << "Region " << index << " i " << i << "\n";
 		<< "\"];\n";
 	}
 
-
 	node_pointer = region->getEntry();
-	Region::Node::List* list = node_pointer->edges;
+	Region::Node::List* list = node_pointer->out_edges;
 	head = node_pointer->getAddress();
 	
 	do{
@@ -745,8 +530,9 @@ cout << "Region " << index << " i " << i << "\n";
 		graph << "state_" << from << "->" << "state_" << to << ";\n";
 	
 		node_pointer = list->edge->tgt;
-		list = node_pointer->edges;
+		list = node_pointer->out_edges;
 //cout << from << "\n";
 	}while(index == node_pointer->region && head != node_pointer->getAddress());
+#endif
 }
 
