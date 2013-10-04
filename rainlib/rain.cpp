@@ -60,12 +60,25 @@ Region::Node::~Node()
   }
 }
 
-Region::Edge* Region::Node::findOutEdge(unsigned long long next_ip) const
+Region::Edge* Region::Node::findOutEdge(unsigned long long next_ip)
 {
+  if (!out_edges) return NULL;
+  if (out_edges->edge->tgt->getAddress() == next_ip) return out_edges->edge;
+
+  EdgeListItem* prev = NULL;
   for (EdgeListItem* it = out_edges; it; it = it->next) {
     if (it->edge->tgt->getAddress() == next_ip) {
+
+      if (prev != NULL) {
+	// Move item to beginning of list...
+	prev->next = it->next;
+	it->next = out_edges;
+	out_edges = it;
+      }
+
       return it->edge;
     }
+    prev = it;
   }
   return NULL;
 }
