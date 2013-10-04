@@ -23,9 +23,6 @@
 using namespace std;
 using namespace rain;
 
-/*
- * --- Inicia a gravação de uma região. ---
- */
 void RegionRecorder::start(unsigned long long addr)
 {
   head = addr;
@@ -40,9 +37,6 @@ void RegionRecorder::record(Region::Node* node, RAIn& rain)
   cur_reg->setEntryNode(this->cur_node);	
 }
 
-/*
- * --- Encerra a gravação de uma região. ---
- */
 Region* RegionRecorder::end()
 {
   cur_reg->setExitNode(cur_node);

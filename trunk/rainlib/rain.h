@@ -20,7 +20,6 @@
 #ifndef RAIN_H
 #define RAIN_H
 
-//#include <iomanip>
 #include <ostream>
 #include <map>
 #include <list>
@@ -247,9 +246,6 @@ namespace rain {
     void printRAInStats(ostream&);
     void printRegionDOT(Region *, ostream&);
     void printRegionsDOT(string&);
-
-    void validateRegions(set<unsigned>&);
-    void printValidate(Region *,int,int,ostream&);
   };
   
   class RF_Technique

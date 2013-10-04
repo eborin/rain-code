@@ -21,7 +21,6 @@
 #ifndef REGIONMANAGER_H
 #define REGIONMANAGER_H
 
-//#include "rain.h"
 #include "regionrecorder.h"
 
 using namespace std;
