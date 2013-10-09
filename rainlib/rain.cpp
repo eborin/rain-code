@@ -161,7 +161,9 @@ void Region::insertRegOutEdge(Edge* ed)
 {
 #ifdef DEBUG
   assert(ed->src->region == this);
-  assert(ed->tgt->region != this);
+  // assert(ed->tgt->region != this); // This assert may not be valid. A side
+  // exit may reach the entry of the same region. It is still a valid inter
+  // region edge.
 #endif 
 
   EdgeListItem* it = new EdgeListItem();
