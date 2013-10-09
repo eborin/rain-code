@@ -42,9 +42,16 @@ clarg::argString overall_stats_fname("-overall_stats",
 				     "file name to dump overall statistics in CSV format", 
 				     "overall_stats.csv");
 
+#define LINUX_SYS_THRESHOLD   0xB2D05E00         // 3000000000
+#define WINDOWS_SYS_THRESHOLD 0xF9CCD8A1C5080000 // 18000000000000000000 
+#define STR_VALUE(arg) #arg
+
+clarg::argBool lt("-lt", "linux trace. System/user address threshold = 0xB2D05E00");
+clarg::argBool wt("-wt", "windows trace. System/user address threshold = 0xF9CCD8A1C5080000");
+
 void usage(char* prg_name) 
 {
-  cout << "Usage: " << prg_name << " -b basename -s index -e index [-h] [-o stats.csv]" 
+  cout << "Usage: " << prg_name << " -b basename -s index -e index [-h] [-o stats.csv] {-lt|-wt}" 
        << endl << endl;
 
   cout << "DESCRIPTION:" << endl;
@@ -93,6 +100,25 @@ int validate_arguments()
     cerr << "Error: start index must be less (<) or equal (=) to end index" 
 	 << "(use -h for help)" << endl;
     return 1;
+  }
+
+  if (lt.was_set()) {
+    if (wt.was_set()) {
+      cerr << "Error: both -lt and -lw were set, select only one." << endl;
+      return 1;
+    }
+    else {
+      rain::RF_Technique::set_system_threshold(LINUX_SYS_THRESHOLD);
+    }
+  }
+  else {
+    if (wt.was_set()) {
+      rain::RF_Technique::set_system_threshold(WINDOWS_SYS_THRESHOLD);
+    }
+    else {
+      cerr << "Error: either -lt or -lw must be selected." << endl;
+      return 1;
+    }
   }
 
   return 0;

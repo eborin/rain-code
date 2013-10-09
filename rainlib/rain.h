@@ -261,6 +261,20 @@ namespace rain {
     virtual void finish() = 0;
 
     RAIn rain;
+
+    static void set_system_threshold(unsigned long long addr) {
+      system_threshold = addr;
+    }
+
+  protected:
+
+    bool is_system_instr(unsigned long long addr)
+    {
+      return (addr >= system_threshold);
+    }
+
+    static unsigned long long system_threshold;
+
   };
 
 };

@@ -24,7 +24,6 @@
 #include "rain.h"
 #include "regionrecorder.h"
 #include "regionmanager.h"
-#include "trace_io.h"
 
 //#define DEBUG_MSGS
 
@@ -113,12 +112,6 @@ namespace rf_technique {
 
     void buildNETRegion();
 
-#define System 0	//Linux/Windows/0
-
-    bool is_system_instr(unsigned long long addr)
-    {
-      return (addr >= System);
-    }
     bool switched_mode(rain::Region::Edge* edg)
     {
       return (is_system_instr(edg->src->getAddress()) != 
