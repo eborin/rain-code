@@ -83,7 +83,7 @@ void NET::process(unsigned long long cur_addr, char cur_opcode[16], char unsigne
 		 cur_addr << " is already included on the recording buffer." << endl);
       stopRecording = true;
     }
-    else if (switched_mode(edg) {
+    else if (switched_mode(edg)) {
 	if (!mix_usr_sys.was_set()) {
 	  // switched between user and system mode
 	  RF_DBG_MSG("Stopped recording because processor switched mode." << endl);
