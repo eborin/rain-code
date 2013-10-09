@@ -290,7 +290,6 @@ void RAIn::setExit(Region::Node* node)
 
 Region::Edge* RAIn::createInterRegionEdge(Region::Node* src, Region::Node* tgt)
 {
-  DBG_ASSERT(src->region != tgt->region);
   Region::Edge* ed = new Region::Edge(src,tgt);
   src->insertOutEdge(ed,tgt);
   tgt->insertInEdge(ed,src);
