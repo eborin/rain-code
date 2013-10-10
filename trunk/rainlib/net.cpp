@@ -53,7 +53,7 @@ void NET::process(unsigned long long cur_addr, char cur_opcode[16], char unsigne
     // Region exits
     profile_target_instr = true;
   }
-  if ((edg == rain.nte_loop_edge) && (cur_addr <= nte_last_addr)) {
+  if ((edg == rain.nte_loop_edge) && (cur_addr <= last_addr)) {
     // Profile NTE instructions that are target of backward jumps
     profile_target_instr = true;
   }
@@ -70,7 +70,7 @@ void NET::process(unsigned long long cur_addr, char cur_opcode[16], char unsigne
   if (recording_NET) {
 
     // Check for stop conditions.
-    DBG_ASSERT(edg->src == rain.nte);
+    // DBG_ASSERT(edg->src == rain.nte);
     bool stopRecording = false;
     if (edg->tgt != rain.nte) {
       // Found region entry
@@ -83,12 +83,16 @@ void NET::process(unsigned long long cur_addr, char cur_opcode[16], char unsigne
 		 cur_addr << " is already included on the recording buffer." << endl);
       stopRecording = true;
     }
-    else if (switched_mode(edg)) {
+    else if (recording_buffer.addresses.size() > 1) {
+      // Only check if buffer alreay has more than one instruction recorded.
+      if (switched_mode(last_addr, cur_addr)) {
 	if (!mix_usr_sys.was_set()) {
 	  // switched between user and system mode
-	  RF_DBG_MSG("Stopped recording because processor switched mode." << endl);
+	  RF_DBG_MSG("Stopped recording because processor switched mode: 0x" << setbase(16) << 
+		     last_addr << " -> 0x" << cur_addr << endl);
 	  stopRecording = true;
 	}
+      }
     }
 
     if (stopRecording) {
@@ -105,8 +109,7 @@ void NET::process(unsigned long long cur_addr, char cur_opcode[16], char unsigne
     }
   }
 
-  if (edg->tgt == rain.nte) 
-    nte_last_addr = cur_addr;  
+  last_addr = cur_addr;  
 
 }
   
