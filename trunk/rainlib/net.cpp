@@ -110,7 +110,6 @@ void NET::process(unsigned long long cur_addr, char cur_opcode[16], char unsigne
   }
 
   last_addr = cur_addr;  
-
 }
   
 
