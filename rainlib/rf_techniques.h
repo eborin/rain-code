@@ -45,7 +45,7 @@ namespace rf_technique {
   {
   public:
     
-    NET() : recording_NET(false),nte_last_addr (0)
+    NET() : recording_NET(false),last_addr (0)
       {}
     
     void process(unsigned long long cur_addr, char cur_opcode[16], char unsigned cur_length, 
@@ -57,7 +57,7 @@ namespace rf_technique {
 
     bool recording_NET;
 
-    unsigned long long nte_last_addr;
+    unsigned long long last_addr;
 
     /** Instruction hotness profiler. */
 #define HOT_THRESHOLD 50
@@ -114,8 +114,12 @@ namespace rf_technique {
 
     bool switched_mode(rain::Region::Edge* edg)
     {
-      return (is_system_instr(edg->src->getAddress()) != 
-	      is_system_instr(edg->tgt->getAddress()));
+      return switched_mode(edg->src->getAddress(), edg->tgt->getAddress());
+    }
+
+    bool switched_mode(unsigned long long src, unsigned long long tgt)
+    {
+      return (is_system_instr(src) != is_system_instr(tgt));
     }
 
   };
