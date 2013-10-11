@@ -53,10 +53,11 @@ void NET::process(unsigned long long cur_addr, char cur_opcode[16], char unsigne
     // Region exits
     profile_target_instr = true;
   }
-  if ((edg == rain.nte_loop_edge) && (cur_addr <= last_addr)) {
+  else if ((edg == rain.nte_loop_edge) && (cur_addr <= last_addr)) {
     // Profile NTE instructions that are target of backward jumps
     profile_target_instr = true;
   }
+
   if (profile_target_instr) {
     profiler.update(cur_addr);
     if (profiler.is_hot(cur_addr) && !recording_NET) {
@@ -68,7 +69,6 @@ void NET::process(unsigned long long cur_addr, char cur_opcode[16], char unsigne
   }
 
   if (recording_NET) {
-
     // Check for stop conditions.
     // DBG_ASSERT(edg->src == rain.nte);
     bool stopRecording = false;
@@ -85,7 +85,7 @@ void NET::process(unsigned long long cur_addr, char cur_opcode[16], char unsigne
     }
     else if (recording_buffer.addresses.size() > 1) {
       // Only check if buffer alreay has more than one instruction recorded.
-      if (switched_mode(last_addr, cur_addr)) {
+      if (switched_mode(recording_buffer.addresses.back(), cur_addr)) {
 	if (!mix_usr_sys.was_set()) {
 	  // switched between user and system mode
 	  RF_DBG_MSG("Stopped recording because processor switched mode: 0x" << setbase(16) << 

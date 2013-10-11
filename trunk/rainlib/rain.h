@@ -118,7 +118,8 @@ namespace rain {
     unsigned long long allNodesFreq() const;
     unsigned long long entryNodesFreq() const;
     unsigned long long exitNodesFreq() const;
-    unsigned long long externalEntries() const;
+    unsigned long long externalEntriesFreq() const;
+    unsigned long long mainExitsFreq() const;
     
     void insertNode(Node * node)
     {
@@ -150,6 +151,8 @@ namespace rain {
     EdgeListItem* reg_in_edges;
 
   private:
+
+    bool isInnerEdge(Edge* e) const;
 
     /** Region inner edges. */
     list<Edge* > region_inner_edges;
