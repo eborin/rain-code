@@ -23,7 +23,8 @@
 #include <sstream>  // stringstream
 #include <iomanip>  // setbase
 #include <stdlib.h> // exit
-#include <vector>
+#include <vector>   // vector
+#include <algorithm>// sort
 
 using namespace std;
 using namespace rain;
