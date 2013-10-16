@@ -106,7 +106,7 @@ int main(int argc,char** argv)
   while (in.get_next_instruction(trace_item)) {
     // Clean unused bytes
     for(int i=trace_item.length; i<16; i++)
-      trace_item.opcode = 0;
+      trace_item.opcode[i] = 0;
     out.write_trace_item(trace_item);
   }
 
