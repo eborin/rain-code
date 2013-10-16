@@ -485,8 +485,6 @@ void RAIn::printOverallStats(ostream& stats_f)
   stats_f << "code_duplication" << "," << 
     (double) total_stat_reg_size / (double) total_unique_instrs
 	  << "," << "Region code duplication" << endl;
-  stats_f << "number_of_regions" << "," << 
-    regions.size() << "," << "Total number of regions" << endl;
   stats_f << "completion_ratio" << "," << 
     (double) total_reg_main_exits / (double) total_reg_entries
 	  << "," << "Completion Ratio" << endl;

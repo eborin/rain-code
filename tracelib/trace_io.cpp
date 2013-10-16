@@ -105,3 +105,61 @@ bool raw_input_pipe_t::get_next_item(trace_item_t& item)
     return true;
   }
 }
+
+raw_output_pipe_t::~raw_output_pipe_t()
+{
+  if (fh)
+    pclose(fh);
+};
+
+void raw_output_pipe_t::write_trace_item(trace_item_t& item)
+{
+  if (!fh) {
+    
+    // Open the current_fh.
+    ostringstream str;
+    str << "gzip > " << basename << ".bin.gz";
+    sys_cmd = str.str();
+    if ( (fh = popen(sys_cmd.c_str(), "w")) == NULL) {
+      cerr << "Error: could not open the input pipe (" << sys_cmd << ")." << endl;
+      // TODO: handle errors gracefully (raise exception...)
+      exit(1);
+    }
+  }
+  
+  if (fwrite(&item.type,sizeof(char), 1, fh) != 1) {
+      cerr << "Error: unexpected error when writing trace item. "
+	   << "fwrite (...) returned error!" << endl;
+      exit(1);
+  }
+  if (item.type != 2) {
+    // memory address 
+    if (fwrite(&item.addr,sizeof(unsigned long long),1,fh) != 1) {
+      cerr << "Error: Could not write address field to trace file (type = " 
+	   << item.type << ")." << endl; 
+      exit(1);
+    }
+  }
+  else {
+    if (fwrite(&item.addr,sizeof(unsigned long long),1,fh) != 1) {
+      cerr << "Error: Could not write address field to output "
+	   << "trace (type = 2)." << endl;
+      exit(1);
+    }
+    if (fwrite(&item.opcode,16*sizeof(char),1,fh) != 1) {
+      cerr << "Error: Could not write opcode field to output "
+	   << "trace (type = 2)." << endl;
+      exit(1);
+    }
+    if (fwrite(&item.length,sizeof(char),1,fh) != 1) {
+      cerr << "Error: Could not write length field to output "
+	   << "trace (type = 2)." << endl;
+      exit(1);
+    }
+    if (fwrite(&item.mem_size,sizeof(char),1,fh) != 1) {
+      cerr << "Error: Could not write mem_size field to output "
+	   << "trace (type = 2)." << endl;
+      exit(1);
+    }
+  }
+}

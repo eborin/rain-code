@@ -62,6 +62,13 @@ namespace trace_io {
     virtual bool get_next_instruction(trace_item_t& item) = 0;
   };
 
+  class output_pipe_t
+  {
+  public:
+    /** Writes the next item to the trace. */
+    virtual void write_trace_item(trace_item_t& item) = 0;
+  };
+
   class raw_input_pipe_t : public input_pipe_t 
   {
   public:
@@ -97,6 +104,29 @@ namespace trace_io {
     int curr_idx;
     // Current file handler
     FILE* current_fh;
+
+    string sys_cmd;
+  };
+
+  class raw_output_pipe_t : public output_pipe_t 
+  {
+  public:
+
+    /** Constructor */
+  raw_output_pipe_t(const string& out_filename) : 
+    basename(out_filename), fh(NULL)
+    {};
+    
+    /** Destructor */
+    ~raw_output_pipe_t();
+
+    /** Writes the next item to the trace. */
+    void write_trace_item(trace_item_t& item);
+    
+  private:
+    string basename;
+    // Current file handler
+    FILE* fh;
 
     string sys_cmd;
   };

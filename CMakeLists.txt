@@ -28,9 +28,11 @@ add_subdirectory(rainlib)
 
 # Add executable
 add_executable(rain_tool.bin main.cpp)
+add_executable(filter_tool.bin filter.cpp)
 
 include_directories ("${PROJECT_SOURCE_DIR}/arglib")
 include_directories ("${PROJECT_SOURCE_DIR}/tracelib")
 include_directories ("${PROJECT_SOURCE_DIR}/rainlib")
 
 target_link_libraries (rain_tool.bin arglib tracelib rainlib)
+target_link_libraries (filter_tool.bin arglib tracelib)
